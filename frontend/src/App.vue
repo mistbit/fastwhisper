@@ -1,9 +1,8 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-dark-950 via-dark-900 to-dark-950">
-    <!-- Background decoration -->
-    <div class="fixed inset-0 overflow-hidden pointer-events-none">
-      <div class="absolute -top-40 -right-40 w-80 h-80 bg-primary-500/10 rounded-full blur-3xl"></div>
-      <div class="absolute -bottom-40 -left-40 w-80 h-80 bg-primary-600/5 rounded-full blur-3xl"></div>
+  <div class="min-h-screen bg-dark-950">
+    <!-- Subtle background -->
+    <div class="fixed inset-0 pointer-events-none">
+      <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-dark-900 via-dark-950 to-dark-950"></div>
     </div>
 
     <Layout>
