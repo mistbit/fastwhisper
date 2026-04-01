@@ -1,337 +1,570 @@
 <template>
-  <div class="min-h-screen">
-    <!-- Hero Section -->
-    <div class="pt-12 pb-8 text-center">
-      <h1 class="text-3xl font-semibold text-dark-100 tracking-tight">
-        录音转会议纪要
-      </h1>
-      <p class="mt-2 text-dark-400">
-        上传音频，智能转录并生成结构化会议纪要
-      </p>
-    </div>
-
-    <!-- Upload Area -->
-    <div
-      class="upload-zone group"
-      :class="{ 'upload-zone-active': isDragging, 'upload-zone-disabled': uploading }"
-      @dragover.prevent="isDragging = true"
-      @dragleave.prevent="isDragging = false"
-      @drop.prevent="handleDrop"
-      @click="!uploading && $refs.fileInput.click()"
-    >
-      <input
-        ref="fileInput"
-        type="file"
-        :accept="acceptTypes"
-        class="hidden"
-        @change="handleFileSelect"
-      />
-
-      <!-- Idle State -->
-      <div v-if="!uploading" class="upload-content">
-        <div class="upload-icon">
-          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
+  <div class="home-page">
+    <section class="surface upload-surface">
+      <div class="surface-head">
+        <div>
+          <p class="eyebrow">{{ t('workspaceTitle') }}</p>
+          <h1 class="hero-title">{{ t('uploadPanelTitle') }}</h1>
+          <p class="surface-copy">{{ t('workspaceBody') }}</p>
         </div>
-        <p class="mt-4 text-lg font-medium text-dark-200">
-          {{ isDragging ? '释放以上传' : '拖拽音频文件到此处' }}
-        </p>
-        <p class="mt-1 text-sm text-dark-500">
-          或点击选择文件
-        </p>
-        <p class="mt-4 text-xs text-dark-600">
-          MP3, WAV, M4A, WEBM, OGG, FLAC, AAC · 最大 500MB
-        </p>
       </div>
 
-      <!-- Uploading State -->
-      <div v-else class="upload-content">
-        <div class="upload-spinner">
-          <svg class="animate-spin w-8 h-8" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-        </div>
-        <p class="mt-4 text-lg font-medium text-dark-200">正在上传</p>
-        <p v-if="fileName" class="mt-1 text-sm text-dark-500">{{ fileName }}</p>
-      </div>
-    </div>
-
-    <!-- Task List -->
-    <div class="mt-10">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-medium text-dark-400 uppercase tracking-wider">
-          历史记录
-        </h2>
-        <select
-          v-model="localStatus"
-          class="filter-select"
-          @change="$emit('filter', localStatus)"
-        >
-          <option value="">全部</option>
-          <option value="processing">处理中</option>
-          <option value="completed">已完成</option>
-          <option value="failed">失败</option>
-        </select>
-      </div>
-
-      <!-- Loading -->
-      <div v-if="loading && tasks.length === 0" class="loading-state">
-        <div class="loading-spinner"></div>
-      </div>
-
-      <!-- Empty State -->
-      <div v-else-if="tasks.length === 0" class="empty-state">
-        <svg class="w-12 h-12 text-dark-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-        </svg>
-        <p class="mt-3 text-dark-500">暂无录音记录</p>
-      </div>
-
-      <!-- Task Grid -->
-      <div v-else class="task-grid">
+      <div class="upload-grid">
         <div
-          v-for="task in tasks"
-          :key="task.task_id"
-          class="task-card group"
-          @click="$emit('select', task)"
+          class="dropzone"
+          :class="{ 'dropzone-active': isDragging, 'dropzone-disabled': uploading }"
+          @dragover.prevent="isDragging = true"
+          @dragleave.prevent="isDragging = false"
+          @drop.prevent="handleDrop"
+          @click="!uploading && fileInput?.click()"
         >
-          <!-- Status Indicator -->
-          <div class="task-status" :class="`status-${task.status}`"></div>
+          <input
+            ref="fileInput"
+            type="file"
+            :accept="acceptTypes"
+            class="hidden"
+            @change="handleFileSelect"
+          />
 
-          <!-- Content -->
-          <div class="task-content">
-            <div class="task-header">
-              <h3 class="task-title">{{ task.filename }}</h3>
-              <span class="task-badge" :class="`badge-${task.status}`">
-                {{ getStatusText(task.status) }}
-              </span>
-            </div>
+          <div class="dropzone-icon">
+            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M12 16V4m0 0-4 4m4-4 4 4M5 18a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3" />
+            </svg>
+          </div>
 
-            <div class="task-meta">
-              <span>{{ formatDate(task.created_at) }}</span>
-              <span v-if="task.status === 'processing'" class="text-primary-400">
-                {{ task.progress }}%
-              </span>
-            </div>
+          <div class="dropzone-copy">
+            <p class="dropzone-title">{{ uploadTitle }}</p>
+            <p class="dropzone-body">{{ uploading && fileName ? fileName : t('uploadBody') }}</p>
+            <p class="dropzone-meta">{{ t('uploadHint') }}</p>
+          </div>
 
-            <!-- Progress Bar -->
-            <div v-if="task.status === 'processing'" class="task-progress">
-              <div class="progress-bar" :style="{ width: `${task.progress}%` }"></div>
+          <button type="button" class="primary-button" :disabled="uploading">
+            {{ uploading ? t('uploadingLabel') : t('chooseFile') }}
+          </button>
+        </div>
+
+        <aside class="settings-pane">
+          <div>
+            <p class="settings-title">{{ t('settingsLabel') }}</p>
+            <p class="settings-copy">{{ t('uploadPanelBody') }}</p>
+          </div>
+
+          <div class="field">
+            <span class="field-label">{{ t('languageLabel') }}</span>
+            <div class="choice-group">
+              <button
+                v-for="option in languageOptions"
+                :key="`lang-${option.value}`"
+                type="button"
+                class="choice-chip"
+                :class="{ 'choice-chip-active': language === option.value }"
+                @click="language = option.value"
+              >
+                {{ option.label }}
+              </button>
             </div>
           </div>
 
-          <!-- Delete Button -->
-          <button
-            class="task-delete"
-            @click.stop="$emit('delete', task.task_id)"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
+          <div class="field">
+            <span class="field-label">{{ t('speakerLabel') }}</span>
+            <div class="choice-group choice-group-compact">
+              <button
+                v-for="option in speakerOptions"
+                :key="`speaker-${option.value || 'auto'}`"
+                type="button"
+                class="choice-chip"
+                :class="{ 'choice-chip-active': speakerCount === option.value }"
+                @click="speakerCount = option.value"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
+
+          <div v-if="error" class="error-note">
+            {{ error }}
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="surface current-surface">
+      <div class="section-head">
+        <div>
+          <h2 class="section-title">{{ t('homeFocusTitle') }}</h2>
+          <p class="section-copy">{{ focusTask ? t('homeFocusBody') : t('homeFocusEmptyBody') }}</p>
         </div>
       </div>
 
-      <!-- Pagination -->
-      <div v-if="total > pageSize" class="pagination">
-        <span class="text-sm text-dark-500">共 {{ total }} 条</span>
-        <div class="pagination-buttons">
-          <button
-            class="page-btn"
-            :disabled="page <= 1"
-            @click="$emit('page-change', page - 1)"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <span class="page-info">{{ page }} / {{ totalPages }}</span>
-          <button
-            class="page-btn"
-            :disabled="page >= totalPages"
-            @click="$emit('page-change', page + 1)"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
+      <div v-if="focusTask" class="current-body">
+        <div class="current-top">
+          <div>
+            <p class="current-name">{{ focusTask.filename }}</p>
+            <p class="current-meta">{{ formatDate(focusTask.created_at) }}</p>
+          </div>
+
+          <div class="current-actions">
+            <span class="status-pill" :class="`status-pill-${focusTask.status}`">
+              {{ getStatusText(focusTask) }}
+            </span>
+            <button class="secondary-button" @click="handleSelect(focusTask)">
+              {{ t('openTask') }}
+            </button>
+            <button
+              v-if="focusTask.status === 'failed'"
+              class="secondary-button"
+              :disabled="retryingTaskId === focusTask.task_id"
+              @click="handleRetry(focusTask)"
+            >
+              {{ retryingTaskId === focusTask.task_id ? t('retrying') : t('retry') }}
+            </button>
+            <button class="secondary-button" @click="handleDelete(focusTask)">
+              {{ t('delete') }}
+            </button>
+          </div>
+        </div>
+
+        <div class="current-stats">
+          <article class="info-card">
+            <span>{{ t('listStage') }}</span>
+            <strong>{{ focusTask.stage ? getStageText(focusTask.stage) : '--' }}</strong>
+          </article>
+          <article class="info-card">
+            <span>{{ t('listTiming') }}</span>
+            <strong>{{ getTimingText(focusTask) }}</strong>
+          </article>
+          <article class="info-card">
+            <span>{{ t('languageLabel') }}</span>
+            <strong>{{ focusTask.language || '--' }}</strong>
+          </article>
+          <article class="info-card">
+            <span>{{ t('speakerLabel') }}</span>
+            <strong>{{ focusTask.speaker_count || '--' }}</strong>
+          </article>
+        </div>
+
+        <p v-if="focusTask.status === 'failed' && focusTask.error_message" class="current-error">
+          {{ focusTask.error_message }}
+        </p>
+
+        <div v-if="focusTask.status === 'processing'" class="current-progress">
+          <div class="progress-track">
+            <div class="progress-bar" :style="{ width: `${focusTask.progress}%` }"></div>
+          </div>
+          <span class="progress-value">{{ focusTask.progress }}%</span>
         </div>
       </div>
-    </div>
+
+      <div v-else class="empty-shell">
+        <p class="empty-title">{{ t('homeFocusEmptyTitle') }}</p>
+        <p class="empty-copy">{{ t('homeFocusEmptyBody') }}</p>
+      </div>
+    </section>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useTaskStore } from '../stores/task'
+import { useLocale } from '../composables/useLocale'
 
-const props = defineProps({
-  uploading: Boolean,
-  tasks: { type: Array, default: () => [] },
-  loading: Boolean,
-  total: { type: Number, default: 0 },
-  page: { type: Number, default: 1 },
-  pageSize: { type: Number, default: 20 },
-  statusFilter: { type: String, default: '' },
-})
-
-const emit = defineEmits(['upload', 'select', 'delete', 'filter', 'page-change'])
+const router = useRouter()
+const taskStore = useTaskStore()
+const { locale, t } = useLocale()
 
 const fileInput = ref(null)
 const isDragging = ref(false)
-const localStatus = ref(props.statusFilter)
 const fileName = ref('')
+const uploading = ref(false)
+const refreshInterval = ref(null)
+const retryingTaskId = ref('')
+const language = ref('auto')
+const speakerCount = ref('')
 
 const acceptTypes = '.mp3,.wav,.m4a,.webm,.ogg,.flac,.aac'
+const tasks = computed(() => taskStore.tasks)
+const error = computed(() => taskStore.error)
+const activeTasks = computed(() => tasks.value.filter((task) => ['pending', 'processing'].includes(task.status)))
+const focusTask = computed(() => activeTasks.value[0] || taskStore.currentTask || tasks.value[0] || null)
+const languageOptions = computed(() => ([
+  { value: 'auto', label: t('languageAuto') },
+  { value: 'zh', label: t('languageZh') },
+  { value: 'en', label: t('languageEn') },
+]))
+const speakerOptions = computed(() => ([
+  { value: '', label: t('speakerAuto') },
+  { value: '2', label: t('speakerTwo') },
+  { value: '3', label: t('speakerThree') },
+  { value: '4', label: t('speakerFour') },
+]))
 
-watch(() => props.statusFilter, (val) => {
-  localStatus.value = val
+const uploadTitle = computed(() => {
+  if (uploading.value) return t('uploadTitleUploading')
+  if (isDragging.value) return t('uploadTitleDragging')
+  return t('uploadTitleIdle')
 })
 
-const totalPages = computed(() => Math.ceil(props.total / props.pageSize))
+onMounted(async () => {
+  await taskStore.fetchTasks({ page: 1 })
+  startRefreshLoop()
+})
 
-function handleDrop(e) {
+onUnmounted(() => {
+  if (refreshInterval.value) {
+    window.clearInterval(refreshInterval.value)
+    refreshInterval.value = null
+  }
+})
+
+function startRefreshLoop() {
+  refreshInterval.value = window.setInterval(() => {
+    const hasActive = tasks.value.some((task) => ['pending', 'processing'].includes(task.status))
+    if (hasActive) {
+      taskStore.fetchTasks({ page: 1 })
+    }
+  }, 5000)
+}
+
+function handleDrop(event) {
   isDragging.value = false
-  const files = e.dataTransfer.files
+  const files = event.dataTransfer.files
   if (files.length > 0) processFile(files[0])
 }
 
-function handleFileSelect(e) {
-  const files = e.target.files
+function handleFileSelect(event) {
+  const files = event.target.files
   if (files.length > 0) processFile(files[0])
+  event.target.value = ''
 }
 
-function processFile(file) {
+async function processFile(file) {
   fileName.value = file.name
-  emit('upload', file)
+  uploading.value = true
+
+  try {
+    const options = { language: language.value }
+    if (speakerCount.value) {
+      options.speaker_count = Number(speakerCount.value)
+    }
+
+    const task = await taskStore.createTask(file, options)
+    if (task?.task_id) {
+      router.push({ name: 'task-detail', params: { id: task.task_id } })
+    }
+  } finally {
+    uploading.value = false
+  }
 }
 
-function getStatusText(status) {
-  return { pending: '等待', processing: '处理中', completed: '已完成', failed: '失败' }[status] || status
+function handleSelect(task) {
+  taskStore.setCurrentTask(task)
+  router.push({ name: 'task-detail', params: { id: task.task_id } })
+}
+
+async function handleDelete(task) {
+  const confirmed = window.confirm(t('confirmDelete', { filename: task.filename }))
+  if (!confirmed) return
+  await taskStore.deleteTask(task.task_id)
+  await taskStore.fetchTasks({ page: 1 })
+}
+
+async function handleRetry(task) {
+  retryingTaskId.value = task.task_id
+  try {
+    await taskStore.retryTask(task.task_id)
+    await taskStore.fetchTasks({ page: 1 })
+  } finally {
+    retryingTaskId.value = ''
+  }
+}
+
+function getStatusText(task) {
+  if (task.status === 'processing' && task.stage === 'queued') return t('queuedBadge')
+  return {
+    pending: t('pendingBadge'),
+    processing: t('processingBadge'),
+    completed: t('completedBadge'),
+    failed: t('failedBadge'),
+  }[task.status] || task.status
+}
+
+function getStageText(stage) {
+  return {
+    queued: t('stageQueued'),
+    preprocessing: t('stagePreprocessing'),
+    transcribing: t('stageTranscribing'),
+    diarizing: t('stageDiarizing'),
+    generating: t('stageGenerating'),
+    saving: t('stageSaving'),
+    failed: t('stageFailed'),
+  }[stage] || stage
+}
+
+function getTimingText(task) {
+  if (task.processing_seconds) {
+    return t('processingMetric', { value: formatDuration(task.processing_seconds) })
+  }
+  if (task.queue_seconds) {
+    return t('queueMetric', { value: formatDuration(task.queue_seconds) })
+  }
+  return '--'
 }
 
 function formatDate(dateStr) {
   if (!dateStr) return ''
-  const date = new Date(dateStr)
-  return date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+  return new Date(dateStr).toLocaleString(locale.value === 'zh' ? 'zh-CN' : 'en-US', {
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function formatDuration(seconds) {
+  if (seconds == null) return '--'
+  const rounded = Math.max(0, Math.round(seconds))
+  if (rounded < 60) return locale.value === 'zh' ? `${rounded} 秒` : `${rounded}s`
+  const minutes = Math.floor(rounded / 60)
+  const remainSeconds = rounded % 60
+  if (minutes < 60) {
+    return locale.value === 'zh'
+      ? (remainSeconds ? `${minutes} 分 ${remainSeconds} 秒` : `${minutes} 分`)
+      : (remainSeconds ? `${minutes}m ${remainSeconds}s` : `${minutes}m`)
+  }
+  const hours = Math.floor(minutes / 60)
+  const remainMinutes = minutes % 60
+  return locale.value === 'zh'
+    ? (remainMinutes ? `${hours} 时 ${remainMinutes} 分` : `${hours} 时`)
+    : (remainMinutes ? `${hours}h ${remainMinutes}m` : `${hours}h`)
 }
 </script>
 
 <style scoped>
-.upload-zone {
-  @apply relative border-2 border-dashed border-dark-700 rounded-2xl p-12 transition-all duration-300 cursor-pointer;
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.02) 0%, rgba(14, 165, 233, 0.05) 100%);
+.home-page {
+  @apply space-y-5 pb-10;
 }
 
-.upload-zone:hover {
-  @apply border-dark-600;
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.03) 0%, rgba(14, 165, 233, 0.08) 100%);
+.surface {
+  @apply overflow-hidden rounded-[24px] border bg-white;
+  border-color: var(--line);
+  box-shadow: var(--shadow-soft);
 }
 
-.upload-zone-active {
-  @apply border-primary-500 bg-primary-500/5;
+.surface-head,
+.section-head {
+  @apply flex flex-col gap-5 border-b px-5 py-5 md:px-6;
+  border-color: var(--line);
 }
 
-.upload-zone-disabled {
-  @apply cursor-not-allowed opacity-75;
+.eyebrow,
+.info-card span {
+  @apply text-xs font-medium uppercase tracking-[0.08em] text-[var(--muted)];
+  font-family: var(--font-mono);
 }
 
-.upload-icon {
-  @apply w-16 h-16 mx-auto rounded-2xl bg-dark-800/80 flex items-center justify-center text-dark-400;
+.hero-title {
+  @apply mt-2 text-[1.85rem] font-semibold tracking-tight text-[var(--text-strong)];
 }
 
-.upload-spinner {
-  @apply w-16 h-16 mx-auto rounded-2xl bg-primary-500/10 flex items-center justify-center text-primary-400;
+.surface-copy,
+.section-copy,
+.settings-copy,
+.dropzone-body,
+.dropzone-meta,
+.current-meta,
+.empty-copy,
+.field-label {
+  @apply text-sm leading-6 text-[var(--muted)];
 }
 
-.filter-select {
-  @apply px-3 py-1.5 bg-dark-800/50 border border-dark-700 rounded-lg text-sm text-dark-300 focus:outline-none focus:border-dark-600;
+.upload-grid {
+  @apply grid gap-0 xl:grid-cols-[minmax(0,1fr)_280px];
 }
 
-.loading-state {
-  @apply py-16 text-center;
+.dropzone {
+  @apply flex min-h-[320px] cursor-pointer flex-col justify-between border-b px-5 py-5 transition-all duration-200 xl:border-b-0 xl:border-r xl:px-6;
+  border-color: var(--line);
+  background: linear-gradient(180deg, #ffffff 0%, #f8f8fa 100%);
 }
 
-.loading-spinner {
-  @apply w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto;
+.dropzone-active {
+  box-shadow: inset 0 0 0 1px rgba(0, 113, 227, 0.2);
 }
 
-.empty-state {
-  @apply py-16 text-center;
+.dropzone-disabled {
+  @apply cursor-progress opacity-75;
 }
 
-.task-grid {
-  @apply grid gap-3;
+.dropzone-icon {
+  @apply flex h-11 w-11 items-center justify-center rounded-full;
+  background: rgba(0, 113, 227, 0.08);
+  color: var(--accent);
 }
 
-.task-card {
-  @apply relative flex items-center p-4 bg-dark-800/30 border border-dark-700/50 rounded-xl cursor-pointer transition-all duration-200;
+.dropzone-copy {
+  @apply mt-8 max-w-xl;
 }
 
-.task-card:hover {
-  @apply bg-dark-800/50 border-dark-600/50;
+.dropzone-title {
+  @apply text-[1.65rem] font-semibold tracking-tight text-[var(--text-strong)];
 }
 
-.task-status {
-  @apply absolute left-0 top-4 bottom-4 w-1 rounded-full;
+.primary-button,
+.secondary-button {
+  @apply inline-flex items-center justify-center rounded-full px-4 text-sm font-medium transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-45;
+  height: 2.5rem;
+  white-space: nowrap;
 }
 
-.status-pending { @apply bg-yellow-500/50; }
-.status-processing { @apply bg-primary-500 animate-pulse; }
-.status-completed { @apply bg-emerald-500/50; }
-.status-failed { @apply bg-red-500/50; }
-
-.task-content {
-  @apply flex-1 min-w-0 pl-3;
+.primary-button {
+  @apply mt-6 text-white;
+  background: var(--accent);
 }
 
-.task-header {
-  @apply flex items-center gap-3;
+.primary-button:hover {
+  background: var(--accent-strong);
 }
 
-.task-title {
-  @apply text-dark-100 font-medium truncate;
+.secondary-button {
+  border: 1px solid var(--line-strong);
+  background: white;
+  color: var(--text-strong);
 }
 
-.task-badge {
-  @apply flex-shrink-0 px-2 py-0.5 rounded text-xs font-medium;
+.secondary-button:hover {
+  border-color: rgba(0, 113, 227, 0.24);
+  color: var(--accent);
 }
 
-.badge-pending { @apply bg-yellow-500/10 text-yellow-400; }
-.badge-processing { @apply bg-primary-500/10 text-primary-400; }
-.badge-completed { @apply bg-emerald-500/10 text-emerald-400; }
-.badge-failed { @apply bg-red-500/10 text-red-400; }
-
-.task-meta {
-  @apply flex items-center gap-4 mt-1 text-sm text-dark-500;
+.settings-pane {
+  @apply flex flex-col gap-4 px-5 py-5 xl:px-6;
+  background: rgba(247, 247, 249, 0.72);
 }
 
-.task-progress {
-  @apply mt-3 h-1 bg-dark-700 rounded-full overflow-hidden;
+.settings-title,
+.section-title {
+  @apply text-base font-semibold tracking-tight text-[var(--text-strong)];
+}
+
+.field {
+  @apply flex flex-col gap-2;
+}
+
+.choice-group {
+  @apply flex flex-wrap gap-2;
+}
+
+.choice-group-compact {
+  @apply gap-2;
+}
+
+.choice-chip {
+  @apply inline-flex items-center justify-center rounded-full border px-3.5 py-2 text-sm font-medium transition-colors duration-200;
+  border-color: var(--line);
+  background: white;
+  color: var(--muted);
+}
+
+.choice-chip:hover {
+  border-color: rgba(0, 113, 227, 0.22);
+  color: var(--text-strong);
+}
+
+.choice-chip-active {
+  border-color: rgba(0, 113, 227, 0.18);
+  background: rgba(0, 113, 227, 0.1);
+  color: var(--accent);
+}
+
+.error-note {
+  @apply rounded-xl px-4 py-3 text-sm leading-6;
+  background: rgba(255, 59, 48, 0.08);
+  color: var(--danger);
+}
+
+.current-body {
+  @apply px-5 py-5 md:px-6;
+}
+
+.current-top {
+  @apply flex flex-col gap-4 md:flex-row md:items-start md:justify-between;
+}
+
+.current-name {
+  @apply text-lg font-semibold tracking-tight text-[var(--text-strong)];
+}
+
+.current-actions {
+  @apply flex flex-wrap items-center gap-2;
+}
+
+.status-pill {
+  @apply inline-flex h-fit items-center rounded-full px-3 py-1 text-xs font-medium;
+}
+
+.status-pill-pending {
+  background: rgba(100, 116, 139, 0.12);
+  color: #475569;
+}
+
+.status-pill-processing {
+  background: rgba(0, 113, 227, 0.12);
+  color: var(--accent);
+}
+
+.status-pill-completed {
+  background: rgba(5, 150, 105, 0.12);
+  color: var(--success);
+}
+
+.status-pill-failed {
+  background: rgba(255, 59, 48, 0.12);
+  color: var(--danger);
+}
+
+.current-stats {
+  @apply mt-5 grid gap-3 md:grid-cols-2;
+}
+
+.info-card {
+  @apply rounded-2xl border px-4 py-4;
+  border-color: var(--line);
+  background: var(--surface-alt);
+}
+
+.info-card strong {
+  @apply mt-2 block text-sm font-medium text-[var(--text-strong)];
+}
+
+.current-error {
+  @apply mt-4 text-sm leading-6;
+  color: var(--danger);
+}
+
+.current-progress {
+  @apply mt-5 flex items-center gap-3;
+}
+
+.progress-track {
+  @apply h-[4px] flex-1 overflow-hidden rounded-full;
+  background: rgba(0, 113, 227, 0.12);
 }
 
 .progress-bar {
-  @apply h-full bg-gradient-to-r from-primary-500 to-primary-400 transition-all duration-500;
+  @apply h-full rounded-full transition-all duration-500;
+  background: var(--accent);
 }
 
-.task-delete {
-  @apply p-2 text-dark-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all;
+.progress-value {
+  @apply text-sm font-medium text-[var(--accent)];
 }
 
-.pagination {
-  @apply flex items-center justify-between mt-6 pt-6 border-t border-dark-800;
+.empty-shell {
+  @apply flex min-h-[220px] flex-col items-center justify-center gap-3 px-6 text-center;
 }
 
-.pagination-buttons {
-  @apply flex items-center gap-2;
-}
-
-.page-btn {
-  @apply p-1.5 rounded-lg text-dark-400 hover:text-dark-200 hover:bg-dark-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors;
-}
-
-.page-info {
-  @apply text-sm text-dark-400 px-2;
+.empty-title {
+  @apply text-lg font-medium text-[var(--text-strong)];
 }
 </style>

@@ -1,8 +1,7 @@
 import asyncio
 import logging
-from typing import Callable, List, Optional
-
-from faster_whisper import WhisperModel
+from threading import Lock
+from typing import Any, Callable, Optional
 
 from app.core.config import settings
 
@@ -13,7 +12,6 @@ class WhisperService:
     """Whisper 转录服务"""
 
     _instance: Optional["WhisperService"] = None
-    _model: Optional[WhisperModel] = None
 
     def __new__(cls):
         if cls._instance is None:
@@ -21,22 +19,55 @@ class WhisperService:
         return cls._instance
 
     def __init__(self):
-        if self._model is None:
-            self._initialize_model()
+        if getattr(self, "_bootstrapped", False):
+            return
+        self._model: Optional[Any] = None
+        self._model_lock = Lock()
+        self._bootstrapped = True
 
-    def _initialize_model(self):
-        """初始化 Whisper 模型"""
-        logger.info(
-            f"Loading Whisper model: {settings.WHISPER_MODEL}, "
-            f"device: {settings.WHISPER_DEVICE}, "
-            f"compute_type: {settings.WHISPER_COMPUTE_TYPE}"
-        )
-        self._model = WhisperModel(
-            settings.WHISPER_MODEL,
-            device=settings.WHISPER_DEVICE,
-            compute_type=settings.WHISPER_COMPUTE_TYPE,
-        )
-        logger.info("Whisper model loaded successfully")
+    def _initialize_model(self) -> Any:
+        """按需初始化 Whisper 模型，必要时从 GPU 回退到 CPU"""
+        from faster_whisper import WhisperModel
+
+        attempts = [(settings.WHISPER_DEVICE, settings.WHISPER_COMPUTE_TYPE)]
+        if settings.WHISPER_DEVICE == "cuda":
+            attempts.append(("cpu", "int8"))
+
+        last_error: Optional[Exception] = None
+        for device, compute_type in attempts:
+            try:
+                logger.info(
+                    "Loading Whisper model: %s, device: %s, compute_type: %s",
+                    settings.WHISPER_MODEL,
+                    device,
+                    compute_type,
+                )
+                model = WhisperModel(
+                    settings.WHISPER_MODEL,
+                    device=device,
+                    compute_type=compute_type,
+                )
+                logger.info("Whisper model loaded successfully")
+                return model
+            except Exception as exc:
+                last_error = exc
+                logger.warning(
+                    "Failed to load Whisper model with device=%s compute_type=%s: %s",
+                    device,
+                    compute_type,
+                    exc,
+                )
+
+        raise RuntimeError(
+            "Failed to initialize Whisper model. Check model name, runtime dependencies, and device configuration."
+        ) from last_error
+
+    def _get_model(self):
+        if self._model is None:
+            with self._model_lock:
+                if self._model is None:
+                    self._model = self._initialize_model()
+        return self._model
 
     async def transcribe(
         self,
@@ -44,26 +75,8 @@ class WhisperService:
         language: str = "auto",
         progress_callback: Optional[Callable[[float], None]] = None,
     ) -> dict:
-        """
-        转录音频文件
-
-        Args:
-            audio_path: 音频文件路径
-            language: 语言 (auto/zh/en)
-            progress_callback: 进度回调函数
-
-        Returns:
-            {
-                "text": "完整文本",
-                "language": "检测到的语言",
-                "language_probability": 0.95,
-                "segments": [
-                    {"start": 0.0, "end": 5.0, "text": "...", "confidence": 0.9}
-                ]
-            }
-        """
-        # 在线程池中运行，避免阻塞
-        loop = asyncio.get_event_loop()
+        """在线程池中执行转录，避免阻塞事件循环"""
+        loop = asyncio.get_running_loop()
         result = await loop.run_in_executor(
             None,
             self._transcribe_sync,
@@ -77,14 +90,14 @@ class WhisperService:
         return result
 
     def _transcribe_sync(self, audio_path: str, language: str) -> dict:
-        """同步转录"""
+        model = self._get_model()
         lang_param = None if language == "auto" else language
 
-        segments_gen, info = self._model.transcribe(
+        segments_gen, info = model.transcribe(
             audio_path,
             language=lang_param,
             beam_size=5,
-            vad_filter=True,  # 使用 VAD 过滤静音
+            vad_filter=True,
             vad_parameters=dict(min_silence_duration_ms=500),
         )
 
@@ -111,5 +124,4 @@ class WhisperService:
         }
 
 
-# 单例实例
 whisper_service = WhisperService()

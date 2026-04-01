@@ -2,8 +2,17 @@ FROM python:3.11-slim
 
 # 安装系统依赖
 RUN apt-get update && apt-get install -y \
+    build-essential \
     ffmpeg \
     libsndfile1 \
+    pkg-config \
+    libavcodec-dev \
+    libavdevice-dev \
+    libavfilter-dev \
+    libavformat-dev \
+    libavutil-dev \
+    libswresample-dev \
+    libswscale-dev \
     curl \
     && rm -rf /var/lib/apt/lists/*
 

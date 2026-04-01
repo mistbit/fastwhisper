@@ -8,6 +8,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    JSON,
     String,
     Text,
     func,
@@ -16,6 +17,8 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+
+JSON_LIST = JSON().with_variant(JSONB, "postgresql")
 
 
 class Task(Base):
@@ -29,16 +32,24 @@ class Task(Base):
     file_path: Mapped[str] = mapped_column(String(500), nullable=False)
     file_size: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     duration: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    processing_started_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     # Status
     status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="pending", index=True
     )  # pending/processing/completed/failed
     progress: Mapped[int] = mapped_column(Integer, default=0)
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     stage: Mapped[Optional[str]] = mapped_column(
         String(50), nullable=True
     )  # preprocessing/transcribing/diarizing/generating
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    last_error_code: Mapped[Optional[str]] = mapped_column(
+        String(50), nullable=True, index=True
+    )
+    last_error_stage: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
     # Config
     language: Mapped[str] = mapped_column(String(10), default="auto")
@@ -51,9 +62,16 @@ class Task(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+    heartbeat_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    lease_expires_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
     completed_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    worker_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, index=True)
 
     # Relationships
     segments: Mapped[List["TranscriptSegment"]] = relationship(
@@ -102,9 +120,9 @@ class MeetingMinutes(Base):
 
     # Minutes
     summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    key_points: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
-    action_items: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
-    decisions: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
+    key_points: Mapped[Optional[list]] = mapped_column(JSON_LIST, nullable=True)
+    action_items: Mapped[Optional[list]] = mapped_column(JSON_LIST, nullable=True)
+    decisions: Mapped[Optional[list]] = mapped_column(JSON_LIST, nullable=True)
 
     # Metadata
     model_used: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)

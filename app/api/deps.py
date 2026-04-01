@@ -85,8 +85,23 @@ async def save_upload_file(file: UploadFile) -> tuple[str, int]:
 
 # Stage descriptions
 STAGE_DESCRIPTIONS = {
+    "queued": "任务已排队，等待工作线程处理...",
     "preprocessing": "正在预处理音频...",
     "transcribing": "正在转录音频...",
     "diarizing": "正在识别说话人...",
     "generating": "正在生成会议纪要...",
+    "saving": "正在保存处理结果...",
+    "failed": "任务处理失败",
+}
+
+ERROR_CODE_LABELS = {
+    "source_missing": "源音频缺失",
+    "lease_expired": "Worker 租约过期",
+    "preprocessing_error": "音频预处理失败",
+    "transcription_error": "语音转录失败",
+    "diarization_error": "说话人识别失败",
+    "generation_error": "纪要生成失败",
+    "storage_error": "结果保存失败",
+    "processing_interrupted": "处理被中断",
+    "processing_error": "任务处理失败",
 }

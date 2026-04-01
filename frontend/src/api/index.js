@@ -19,7 +19,9 @@ api.interceptors.response.use(
   (response) => response.data,
   (error) => {
     const message = error.response?.data?.detail || error.message || '请求失败'
-    return Promise.reject(new Error(message))
+    const wrapped = new Error(message)
+    wrapped.status = error.response?.status
+    return Promise.reject(wrapped)
   }
 )
 
@@ -36,9 +38,24 @@ export const taskApi = {
     })
   },
 
+  // Get task detail
+  getTask(taskId) {
+    return api.get(`/api/v1/tasks/${taskId}`)
+  },
+
   // Get task progress
   getProgress(taskId) {
     return api.get(`/api/v1/tasks/${taskId}/progress`)
+  },
+
+  // Retry failed task
+  retry(taskId) {
+    return api.post(`/api/v1/tasks/${taskId}/retry`)
+  },
+
+  // Get task overview stats
+  getOverview() {
+    return api.get('/api/v1/tasks/stats/overview')
   },
 
   // Get meeting minutes

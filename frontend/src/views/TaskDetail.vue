@@ -1,214 +1,331 @@
 <template>
-  <div class="max-w-4xl mx-auto">
-    <!-- Back -->
-    <button @click="router.back()" class="back-btn">
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-      </svg>
-      返回
-    </button>
-
-    <!-- Loading -->
-    <div v-if="loading" class="loading-container">
-      <div class="loading-spinner"></div>
+  <div class="detail-page">
+    <div v-if="loading" class="state-shell">
+      <div class="loader"></div>
     </div>
 
-    <!-- Content -->
-    <div v-else-if="task" class="space-y-6">
-      <!-- Header -->
-      <div class="task-header-card">
-        <div>
-          <h1 class="task-title">{{ task.filename }}</h1>
-          <p class="task-date">{{ formatDate(task.created_at) }}</p>
-        </div>
-        <span class="status-badge" :class="`status-${task.status}`">
-          {{ getStatusText(task.status) }}
-        </span>
-      </div>
+    <div v-else-if="task" class="detail-grid">
+      <section class="main-column">
+        <button @click="router.push({ name: 'home' })" class="back-link">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+          {{ t('detailBack') }}
+        </button>
 
-      <!-- Progress -->
-      <div v-if="task.status === 'processing' || task.status === 'pending'" class="progress-card">
-        <div class="progress-header">
-          <span class="progress-label">{{ task.stage_description || '准备处理...' }}</span>
-          <span class="progress-value">{{ task.progress }}%</span>
-        </div>
-        <div class="progress-track">
-          <div class="progress-fill" :style="{ width: `${task.progress}%` }"></div>
-        </div>
-        <p v-if="task.estimated_remaining" class="progress-time">
-          预计剩余 {{ formatDuration(task.estimated_remaining) }}
-        </p>
-      </div>
+        <header class="detail-header">
+          <div>
+            <h1 class="detail-title">{{ task.filename }}</h1>
+            <p class="detail-copy">{{ leadCopy }}</p>
+          </div>
 
-      <!-- Error -->
-      <div v-if="task.status === 'failed'" class="error-card">
-        <svg class="w-5 h-5 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <span class="text-red-400 text-sm">{{ task.error_message || '处理失败' }}</span>
-      </div>
+          <span class="status-pill" :class="`status-pill-${task.status}`">
+            {{ getStatusText(task.status) }}
+          </span>
+        </header>
 
-      <!-- Results -->
-      <template v-if="task.status === 'completed' && minutes">
-        <!-- Tabs -->
-        <div class="tabs">
-          <button
-            v-for="tab in tabs"
-            :key="tab.id"
-            class="tab"
-            :class="{ 'tab-active': activeTab === tab.id }"
-            @click="activeTab = tab.id"
-          >
-            {{ tab.label }}
-          </button>
-        </div>
-
-        <!-- Minutes -->
-        <div v-show="activeTab === 'minutes'" class="space-y-6">
-          <!-- Summary -->
-          <section v-if="minutes.minutes?.summary" class="result-section">
-            <h3 class="section-title">
-              <span class="section-icon bg-primary-500/10 text-primary-400">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </span>
-              摘要
-            </h3>
-            <p class="text-dark-300 leading-relaxed">{{ minutes.minutes.summary }}</p>
-          </section>
-
-          <!-- Key Points -->
-          <section v-if="minutes.minutes?.key_points?.length" class="result-section">
-            <h3 class="section-title">
-              <span class="section-icon bg-yellow-500/10 text-yellow-400">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                </svg>
-              </span>
-              关键要点
-            </h3>
-            <div class="key-points">
-              <div v-for="(point, i) in minutes.minutes.key_points" :key="i" class="key-point-item">
-                <span class="key-point-num">{{ i + 1 }}</span>
-                <div>
-                  <h4 class="text-dark-100 font-medium">{{ point.title }}</h4>
-                  <p class="text-sm text-dark-400 mt-1">{{ point.content }}</p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <!-- Action Items -->
-          <section v-if="minutes.minutes?.action_items?.length" class="result-section">
-            <h3 class="section-title">
-              <span class="section-icon bg-emerald-500/10 text-emerald-400">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                </svg>
-              </span>
-              待办事项
-            </h3>
-            <div class="action-list">
-              <div v-for="(item, i) in minutes.minutes.action_items" :key="i" class="action-item">
-                <span class="action-dot"></span>
-                <span class="flex-1 text-dark-200">{{ item.task }}</span>
-                <span v-if="item.assignee" class="action-assignee">{{ item.assignee }}</span>
-                <span v-if="item.deadline" class="action-deadline">{{ item.deadline }}</span>
-              </div>
-            </div>
-          </section>
-
-          <!-- Decisions -->
-          <section v-if="minutes.minutes?.decisions?.length" class="result-section">
-            <h3 class="section-title">
-              <span class="section-icon bg-purple-500/10 text-purple-400">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </span>
-              决策
-            </h3>
-            <div class="decision-list">
-              <div v-for="(d, i) in minutes.minutes.decisions" :key="i" class="decision-item">
-                <h4 class="decision-topic">{{ d.topic }}</h4>
-                <p class="text-dark-200">{{ d.decision }}</p>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <!-- Transcript -->
-        <div v-show="activeTab === 'transcript'" class="transcript-list">
-          <div v-for="(seg, i) in minutes.transcript?.segments" :key="i" class="transcript-item">
-            <div class="speaker-avatar">
-              {{ getSpeakerInitial(seg.speaker_label || seg.speaker) }}
-            </div>
-            <div class="transcript-content">
-              <div class="transcript-header">
-                <span class="speaker-name">{{ seg.speaker_label || seg.speaker }}</span>
-                <span class="transcript-time">{{ formatTime(seg.start_time) }}</span>
-              </div>
-              <p class="transcript-text">{{ seg.text }}</p>
+        <section v-if="task.status === 'pending' || task.status === 'processing'" class="surface progress-surface">
+          <div class="progress-head">
+            <div>
+              <p class="section-label">{{ t('detailProgressTitle') }}</p>
+              <strong class="progress-value">{{ task.progress }}%</strong>
             </div>
           </div>
-        </div>
-      </template>
+
+          <p class="progress-copy">
+            {{ task.stage_description || getStageText(task.stage) || t('detailProgressFallback') }}
+          </p>
+
+          <div class="progress-track">
+            <div class="progress-bar" :style="{ width: `${task.progress}%` }"></div>
+          </div>
+
+          <p v-if="task.estimated_remaining" class="progress-meta">
+            {{ t('detailRemaining', { value: formatDuration(task.estimated_remaining) }) }}
+          </p>
+        </section>
+
+        <section v-if="task.status === 'failed'" class="surface alert-surface alert-error">
+          <div>
+            <p>{{ task.error_message || t('detailFailedFallback') }}</p>
+            <p v-if="task.last_error_stage" class="alert-meta">
+              {{ t('detailFailureStage') }} · {{ getStageText(task.last_error_stage) }}
+            </p>
+          </div>
+
+          <button class="secondary-button" :disabled="retrying" @click="handleRetry">
+            {{ retrying ? t('retrying') : t('retry') }}
+          </button>
+        </section>
+
+        <section v-if="pageError" class="surface alert-surface alert-error">
+          <p>{{ pageError }}</p>
+        </section>
+
+        <template v-if="task.status === 'completed' && minutes">
+          <section class="tabbar">
+            <div class="tab-group">
+              <button
+                v-for="tab in tabs"
+                :key="tab.id"
+                class="tab-button"
+                :class="{ 'tab-button-active': activeTab === tab.id }"
+                @click="activeTab = tab.id"
+              >
+                {{ tab.label }}
+              </button>
+            </div>
+          </section>
+
+          <section v-show="activeTab === 'minutes'" class="surface reader-surface">
+            <div class="reader-section">
+              <p class="section-label">{{ t('minutesSummary') }}</p>
+              <h2 class="reader-title">{{ t('minutesSummary') }}</h2>
+              <p class="reader-text">{{ minutes.minutes?.summary || t('noMinutes') }}</p>
+            </div>
+
+            <div v-if="minutes.minutes?.key_points?.length" class="reader-section">
+              <p class="section-label">{{ t('minutesKeyPoints') }}</p>
+              <h2 class="reader-title">{{ t('minutesKeyPoints') }}</h2>
+              <ul class="reader-list">
+                <li v-for="(point, index) in minutes.minutes.key_points" :key="index">
+                  <strong>{{ point.title }}</strong>
+                  <span>{{ point.content }}</span>
+                </li>
+              </ul>
+            </div>
+
+            <div v-if="minutes.minutes?.action_items?.length" class="reader-section">
+              <p class="section-label">{{ t('minutesActions') }}</p>
+              <h2 class="reader-title">{{ t('minutesActions') }}</h2>
+              <ul class="reader-list">
+                <li v-for="(item, index) in minutes.minutes.action_items" :key="index">
+                  <strong>{{ item.assignee || '-' }}</strong>
+                  <span>{{ item.task }}<template v-if="item.deadline"> · {{ item.deadline }}</template></span>
+                </li>
+              </ul>
+            </div>
+
+            <div v-if="minutes.minutes?.decisions?.length" class="reader-section">
+              <p class="section-label">{{ t('minutesDecisions') }}</p>
+              <h2 class="reader-title">{{ t('minutesDecisions') }}</h2>
+              <ul class="reader-list">
+                <li v-for="(decision, index) in minutes.minutes.decisions" :key="index">
+                  <strong>{{ decision.topic }}</strong>
+                  <span>{{ decision.decision }}</span>
+                </li>
+              </ul>
+            </div>
+          </section>
+
+          <section v-show="activeTab === 'transcript'" class="surface reader-surface">
+            <header class="reader-section">
+              <p class="section-label">{{ t('transcriptHeading') }}</p>
+              <h2 class="reader-title">{{ t('transcriptHeading') }}</h2>
+            </header>
+
+            <div v-if="minutes.transcript?.segments?.length" class="transcript-list">
+              <article
+                v-for="(segment, index) in minutes.transcript.segments"
+                :key="index"
+                class="transcript-row"
+              >
+                <div class="transcript-meta">
+                  <span class="speaker-chip">{{ segment.speaker_label || segment.speaker }}</span>
+                  <span class="time-chip">{{ formatTime(segment.start_time) }}</span>
+                </div>
+                <p class="transcript-copy">{{ segment.text }}</p>
+              </article>
+            </div>
+
+            <p v-else class="reader-text reader-empty">{{ t('noTranscript') }}</p>
+          </section>
+        </template>
+
+        <section v-else-if="task.status === 'completed'" class="surface alert-surface">
+          <p>{{ t('noMinutes') }}</p>
+        </section>
+      </section>
+
+      <aside class="side-column">
+        <section class="surface info-surface">
+          <div class="surface-head compact-head">
+            <h2 class="section-title">{{ t('detailSummaryTitle') }}</h2>
+          </div>
+
+          <div class="info-list">
+            <div class="info-row">
+              <span>{{ t('detailStatusLabel') }}</span>
+              <strong>{{ getStatusText(task.status) }}</strong>
+            </div>
+            <div class="info-row">
+              <span>{{ t('detailStageLabel') }}</span>
+              <strong>{{ task.stage ? getStageText(task.stage) : '--' }}</strong>
+            </div>
+            <div class="info-row">
+              <span>{{ t('detailCreatedLabel') }}</span>
+              <strong>{{ formatDate(task.created_at) }}</strong>
+            </div>
+            <div class="info-row">
+              <span>{{ t('detailProcessingCount') }}</span>
+              <strong>{{ task.attempt_count || 0 }}</strong>
+            </div>
+            <div class="info-row">
+              <span>{{ t('detailQueueTime') }}</span>
+              <strong>{{ formatDuration(task.queue_seconds) }}</strong>
+            </div>
+            <div class="info-row">
+              <span>{{ t('detailProcessingTime') }}</span>
+              <strong>{{ formatDuration(task.processing_seconds) }}</strong>
+            </div>
+            <div v-if="task.duration" class="info-row">
+              <span>{{ t('detailAudioDuration') }}</span>
+              <strong>{{ formatDuration(task.duration) }}</strong>
+            </div>
+            <div class="info-row">
+              <span>{{ t('detailLanguageSetting') }}</span>
+              <strong>{{ task.language || '--' }}</strong>
+            </div>
+            <div class="info-row">
+              <span>{{ t('detailSpeakerSetting') }}</span>
+              <strong>{{ task.speaker_count || '--' }}</strong>
+            </div>
+            <div v-if="minutes?.transcript?.segments?.length" class="info-row">
+              <span>{{ t('detailTranscriptCount') }}</span>
+              <strong>{{ formatNumber(minutes.transcript.segments.length) }}</strong>
+            </div>
+            <div v-if="task.last_error_label" class="info-row">
+              <span>{{ t('detailFailureType') }}</span>
+              <strong>{{ task.last_error_label }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="surface info-surface">
+          <div class="surface-head compact-head">
+            <h2 class="section-title">{{ t('detailActionsTitle') }}</h2>
+          </div>
+
+          <p class="side-copy">{{ t('detailActionsBody') }}</p>
+
+          <button
+            v-if="task.status === 'failed'"
+            class="secondary-button side-action"
+            :disabled="retrying"
+            @click="handleRetry"
+          >
+            {{ retrying ? t('retrying') : t('retry') }}
+          </button>
+        </section>
+
+        <section v-if="minutes?.model_used || minutes?.tokens_used" class="surface info-surface">
+          <div class="surface-head compact-head">
+            <h2 class="section-title">{{ t('detailOutputTitle') }}</h2>
+          </div>
+
+          <div class="info-list info-list-tight">
+            <div class="info-row">
+              <span>{{ t('detailLlm') }}</span>
+              <strong>{{ minutes?.model_used || t('modelUnknown') }}</strong>
+            </div>
+            <div v-if="minutes?.tokens_used" class="info-row">
+              <span>{{ t('tokenLabel') }}</span>
+              <strong>{{ formatNumber(minutes.tokens_used) }}</strong>
+            </div>
+          </div>
+        </section>
+      </aside>
     </div>
 
-    <!-- Not Found -->
-    <div v-else class="not-found">
-      <p class="text-dark-400">任务不存在</p>
-      <button @click="router.push('/')" class="mt-4 btn-primary">返回首页</button>
+    <div v-else-if="notFound" class="state-shell">
+      <p class="state-title">{{ t('detailMissing') }}</p>
+    </div>
+
+    <div v-else class="state-shell">
+      <p class="state-title">{{ t('detailUnavailable') }}</p>
+      <button class="secondary-button mt-4" @click="loadTask">{{ t('detailRetryLoad') }}</button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useTaskStore } from '../stores/task'
+import { useLocale } from '../composables/useLocale'
 
 const router = useRouter()
 const route = useRoute()
 const taskStore = useTaskStore()
+const { locale, t } = useLocale()
 
 const loading = ref(true)
-const task = ref(null)
 const minutes = ref(null)
 const activeTab = ref('minutes')
-const taskId = route.params.id
+const pageError = ref('')
+const notFound = ref(false)
+const retrying = ref(false)
+const task = computed(() => taskStore.currentTask)
+const taskId = computed(() => route.params.id)
 
-const tabs = [
-  { id: 'minutes', label: '会议纪要' },
-  { id: 'transcript', label: '转录文本' },
-]
+const tabs = computed(() => ([
+  { id: 'minutes', label: t('tabMinutes') },
+  { id: 'transcript', label: t('tabTranscript') },
+]))
+
+const leadCopy = computed(() => {
+  if (!task.value) return ''
+  if (task.value.status === 'pending') return t('detailLeadPending')
+  if (task.value.status === 'processing') return t('detailLeadProcessing')
+  if (task.value.status === 'completed') return t('detailLeadCompleted')
+  if (task.value.status === 'failed') return task.value.error_message || t('detailLeadFailed')
+  return ''
+})
 
 watch(() => task.value?.status, async (newStatus, oldStatus) => {
+  if (!newStatus) return
+
   if (newStatus === 'completed' && oldStatus !== 'completed') {
     await loadMinutes()
+    taskStore.stopProgressPolling()
+  } else if (['pending', 'processing'].includes(newStatus)) {
+    taskStore.startProgressPolling(taskId.value)
+  } else if (newStatus === 'failed') {
+    taskStore.stopProgressPolling()
   }
 })
 
-onMounted(async () => { await loadTask() })
-onUnmounted(() => { taskStore.stopProgressPolling() })
+watch(taskId, async () => {
+  await loadTask()
+})
+
+onMounted(async () => {
+  await loadTask()
+})
+
+onUnmounted(() => {
+  taskStore.stopProgressPolling()
+})
 
 async function loadTask() {
   loading.value = true
+  pageError.value = ''
+  minutes.value = null
+  notFound.value = false
+
   try {
-    let foundTask = taskStore.tasks.find(t => t.task_id === taskId)
-    if (!foundTask) {
-      const progress = await taskStore.fetchProgress(taskId)
-      if (progress) foundTask = progress
+    const detail = await taskStore.fetchTask(taskId.value)
+    if (detail.status === 'pending' || detail.status === 'processing') {
+      taskStore.startProgressPolling(taskId.value)
     }
-    task.value = foundTask
-    if (task.value) {
-      if (task.value.status === 'pending' || task.value.status === 'processing') {
-        taskStore.startProgressPolling(taskId)
-      }
-      if (task.value.status === 'completed') {
-        await loadMinutes()
-      }
+    if (detail.status === 'completed') {
+      await loadMinutes()
+    }
+  } catch (error) {
+    pageError.value = error.message
+    notFound.value = error.status === 404
+    if (notFound.value) {
+      taskStore.clearCurrentTask()
     }
   } finally {
     loading.value = false
@@ -217,211 +334,380 @@ async function loadTask() {
 
 async function loadMinutes() {
   try {
-    minutes.value = await taskStore.fetchMinutes(taskId)
-  } catch (e) {
-    console.error('Failed to load minutes:', e)
+    pageError.value = ''
+    minutes.value = await taskStore.fetchMinutes(taskId.value)
+  } catch (error) {
+    pageError.value = error.message
   }
 }
 
-function getStatusText(s) {
-  return { pending: '等待中', processing: '处理中', completed: '已完成', failed: '失败' }[s] || s
+async function handleRetry() {
+  retrying.value = true
+  pageError.value = ''
+  minutes.value = null
+
+  try {
+    const retriedTask = await taskStore.retryTask(taskId.value)
+    if (retriedTask?.status === 'pending' || retriedTask?.status === 'processing') {
+      taskStore.startProgressPolling(taskId.value)
+    }
+  } catch (error) {
+    pageError.value = error.message
+  } finally {
+    retrying.value = false
+  }
 }
 
-function formatDate(d) {
-  if (!d) return ''
-  return new Date(d).toLocaleString('zh-CN')
+function getStatusText(status) {
+  return {
+    pending: t('pendingBadge'),
+    processing: t('processingBadge'),
+    completed: t('completedBadge'),
+    failed: t('failedBadge'),
+  }[status] || status
 }
 
-function formatDuration(sec) {
-  if (sec < 60) return `${sec} 秒`
-  const m = Math.floor(sec / 60), s = sec % 60
-  if (m < 60) return `${m} 分 ${s} 秒`
-  return `${Math.floor(m / 60)} 时 ${m % 60} 分`
+function getStageText(stage) {
+  return {
+    queued: t('stageQueued'),
+    preprocessing: t('stagePreprocessing'),
+    transcribing: t('stageTranscribing'),
+    diarizing: t('stageDiarizing'),
+    generating: t('stageGenerating'),
+    saving: t('stageSaving'),
+    failed: t('stageFailed'),
+  }[stage] || stage
 }
 
-function formatTime(s) {
-  const m = Math.floor(s / 60), sec = Math.floor(s % 60)
-  return `${m}:${sec.toString().padStart(2, '0')}`
+function formatDate(value) {
+  if (!value) return ''
+  return new Date(value).toLocaleString(locale.value === 'zh' ? 'zh-CN' : 'en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
-function getSpeakerInitial(speaker) {
-  if (!speaker) return '?'
-  const m = speaker.match(/\d+/)
-  return m ? m[1] : speaker.slice(0, 2).toUpperCase()
+function formatDuration(value) {
+  if (value == null) return '--'
+  const rounded = Math.max(0, Math.round(value))
+  if (rounded < 60) return locale.value === 'zh' ? `${rounded} 秒` : `${rounded}s`
+  const minutes = Math.floor(rounded / 60)
+  const seconds = rounded % 60
+  if (minutes < 60) {
+    return locale.value === 'zh'
+      ? (seconds ? `${minutes} 分 ${seconds} 秒` : `${minutes} 分`)
+      : (seconds ? `${minutes}m ${seconds}s` : `${minutes}m`)
+  }
+  const hours = Math.floor(minutes / 60)
+  const remainMinutes = minutes % 60
+  return locale.value === 'zh'
+    ? (remainMinutes ? `${hours} 时 ${remainMinutes} 分` : `${hours} 时`)
+    : (remainMinutes ? `${hours}h ${remainMinutes}m` : `${hours}h`)
+}
+
+function formatNumber(value) {
+  if (value == null) return '--'
+  return new Intl.NumberFormat(locale.value === 'zh' ? 'zh-CN' : 'en-US').format(value)
+}
+
+function formatTime(seconds) {
+  const minutes = Math.floor(seconds / 60)
+  const remainSeconds = Math.floor(seconds % 60)
+  return `${minutes}:${remainSeconds.toString().padStart(2, '0')}`
 }
 </script>
 
 <style scoped>
-.back-btn {
-  @apply inline-flex items-center gap-1 px-3 py-1.5 text-sm text-dark-400 hover:text-dark-200 transition-colors mb-6;
+.detail-page {
+  @apply pb-10;
 }
 
-.loading-container {
-  @apply py-20 text-center;
+.detail-grid {
+  @apply grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start;
 }
 
-.loading-spinner {
-  @apply w-10 h-10 border-2 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto;
+.main-column {
+  @apply min-w-0 space-y-5;
 }
 
-.task-header-card {
-  @apply flex items-start justify-between p-5 bg-dark-800/30 border border-dark-700/50 rounded-2xl;
+.side-column {
+  @apply space-y-5;
 }
 
-.task-title {
-  @apply text-xl font-semibold text-dark-100;
+.back-link {
+  @apply inline-flex items-center gap-2 text-sm text-[var(--muted)] transition-colors duration-200 hover:text-[var(--text-strong)];
 }
 
-.task-date {
-  @apply text-sm text-dark-500 mt-1;
+.detail-header {
+  @apply flex flex-col gap-4 border-b border-[var(--line)] pb-5 md:flex-row md:items-start md:justify-between;
 }
 
-.status-badge {
-  @apply px-3 py-1 rounded-full text-xs font-medium;
+.detail-title {
+  @apply text-2xl font-semibold tracking-tight text-[var(--text-strong)] md:text-[2rem];
 }
 
-.status-pending { @apply bg-yellow-500/10 text-yellow-400; }
-.status-processing { @apply bg-primary-500/10 text-primary-400; }
-.status-completed { @apply bg-emerald-500/10 text-emerald-400; }
-.status-failed { @apply bg-red-500/10 text-red-400; }
-
-.progress-card {
-  @apply p-5 bg-dark-800/30 border border-dark-700/50 rounded-2xl;
+.detail-copy {
+  @apply mt-2 max-w-3xl text-sm leading-7 text-[var(--muted)];
 }
 
-.progress-header {
-  @apply flex items-center justify-between mb-3;
+.surface {
+  @apply overflow-hidden rounded-[22px] border;
+  border-color: var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
 }
 
-.progress-label {
-  @apply text-sm text-dark-400;
+.surface-head {
+  @apply border-b px-5 py-4 md:px-6;
+  border-color: var(--line);
 }
 
-.progress-value {
-  @apply text-sm font-medium text-primary-400;
-}
-
-.progress-track {
-  @apply h-1.5 bg-dark-700 rounded-full overflow-hidden;
-}
-
-.progress-fill {
-  @apply h-full bg-gradient-to-r from-primary-500 to-primary-400 transition-all duration-500;
-}
-
-.progress-time {
-  @apply mt-3 text-xs text-dark-500;
-}
-
-.error-card {
-  @apply flex items-center gap-3 p-4 bg-red-500/5 border border-red-500/10 rounded-xl;
-}
-
-.tabs {
-  @apply flex gap-1 p-1 bg-dark-800/50 rounded-xl w-fit;
-}
-
-.tab {
-  @apply px-4 py-2 text-sm font-medium rounded-lg transition-colors text-dark-400 hover:text-dark-200;
-}
-
-.tab-active {
-  @apply bg-dark-700 text-dark-100;
-}
-
-.result-section {
-  @apply p-5 bg-dark-800/30 border border-dark-700/50 rounded-2xl;
+.compact-head {
+  @apply border-b-0 pb-3;
 }
 
 .section-title {
-  @apply flex items-center gap-2 text-sm font-medium text-dark-200 mb-4;
+  @apply text-[1.05rem] font-semibold tracking-tight text-[var(--text-strong)];
 }
 
-.section-icon {
-  @apply w-6 h-6 rounded-lg flex items-center justify-center;
+.section-label {
+  @apply text-xs font-medium text-[var(--muted)];
 }
 
-.key-points {
-  @apply space-y-3;
+.progress-surface,
+.alert-surface,
+.info-surface {
+  @apply px-5 py-5 md:px-6;
 }
 
-.key-point-item {
-  @apply flex gap-3 p-3 bg-dark-700/20 rounded-xl;
+.progress-value {
+  @apply mt-2 block text-4xl font-semibold tracking-tight text-[var(--text-strong)];
 }
 
-.key-point-num {
-  @apply flex-shrink-0 w-6 h-6 rounded-full bg-yellow-500/20 text-yellow-400 flex items-center justify-center text-xs font-medium;
+.progress-copy,
+.progress-meta,
+.side-copy {
+  @apply text-sm leading-7 text-[var(--muted)];
 }
 
-.action-list {
-  @apply space-y-2;
+.progress-copy {
+  @apply mt-4;
 }
 
-.action-item {
-  @apply flex items-center gap-3 p-3 bg-dark-700/20 rounded-xl;
+.progress-track {
+  @apply mt-5 h-[5px] overflow-hidden rounded-full;
+  background: rgba(0, 113, 227, 0.12);
 }
 
-.action-dot {
-  @apply w-2 h-2 rounded-full bg-emerald-400;
+.progress-bar {
+  @apply h-full rounded-full transition-all duration-500;
+  background: var(--accent);
 }
 
-.action-assignee {
-  @apply text-sm text-primary-400;
+.progress-meta {
+  @apply mt-3;
 }
 
-.action-deadline {
-  @apply text-sm text-dark-500;
+.status-pill {
+  @apply inline-flex h-fit items-center rounded-full px-3 py-1 text-xs font-medium;
 }
 
-.decision-list {
-  @apply space-y-3;
+.status-pill-pending {
+  background: rgba(100, 116, 139, 0.12);
+  color: #475569;
 }
 
-.decision-item {
-  @apply p-4 bg-purple-500/5 border border-purple-500/10 rounded-xl;
+.status-pill-processing {
+  background: rgba(0, 113, 227, 0.12);
+  color: var(--accent);
 }
 
-.decision-topic {
-  @apply text-sm font-medium text-purple-400 mb-1;
+.status-pill-completed {
+  background: rgba(5, 150, 105, 0.12);
+  color: var(--success);
 }
 
-.transcript-list {
-  @apply space-y-3;
+.status-pill-failed {
+  background: rgba(255, 59, 48, 0.12);
+  color: var(--danger);
 }
 
-.transcript-item {
-  @apply flex gap-4 p-4 bg-dark-800/30 border border-dark-700/50 rounded-2xl;
+.alert-surface {
+  @apply flex flex-col gap-4 text-sm leading-6 text-[var(--text-strong)] md:flex-row md:items-center md:justify-between;
 }
 
-.speaker-avatar {
-  @apply flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-sm font-medium text-white;
+.alert-error {
+  background: rgba(255, 59, 48, 0.04);
+  border-color: rgba(255, 59, 48, 0.16);
 }
 
-.transcript-content {
-  @apply flex-1 min-w-0;
+.alert-meta {
+  @apply mt-1 text-xs text-[var(--muted)];
 }
 
-.transcript-header {
-  @apply flex items-center gap-3 mb-1;
+.tabbar {
+  @apply border-b border-[var(--line)] pb-4;
 }
 
-.speaker-name {
-  @apply text-sm font-medium text-primary-400;
+.tab-group {
+  @apply flex flex-wrap gap-2;
 }
 
-.transcript-time {
-  @apply text-xs text-dark-500;
+.tab-button,
+.secondary-button {
+  @apply inline-flex items-center justify-center rounded-full px-4 text-sm font-medium transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-45;
+  height: 2.5rem;
 }
 
-.transcript-text {
-  @apply text-dark-200 leading-relaxed;
+.tab-button {
+  @apply border;
+  border-color: var(--line-strong);
+  background: white;
+  color: var(--muted);
 }
 
-.not-found {
-  @apply py-20 text-center;
+.tab-button-active {
+  background: var(--text-strong);
+  border-color: var(--text-strong);
+  color: white;
 }
 
-.btn-primary {
-  @apply px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white font-medium rounded-lg transition-colors;
+.secondary-button {
+  border: 1px solid var(--line-strong);
+  background: white;
+  color: var(--text-strong);
+}
+
+.secondary-button:hover {
+  border-color: rgba(0, 113, 227, 0.24);
+  color: var(--accent);
+}
+
+.reader-section {
+  @apply px-5 py-5 md:px-6;
+}
+
+.reader-section + .reader-section {
+  @apply border-t;
+  border-color: var(--line);
+}
+
+.reader-title {
+  @apply mt-1 text-[1.05rem] font-semibold tracking-tight text-[var(--text-strong)];
+}
+
+.reader-text,
+.transcript-copy {
+  @apply text-sm leading-8 text-[var(--text-strong)];
+}
+
+.reader-text {
+  @apply mt-3;
+  white-space: pre-wrap;
+}
+
+.reader-empty {
+  @apply px-5 py-5 md:px-6;
+}
+
+.reader-list {
+  @apply mt-4 space-y-4;
+}
+
+.reader-list li {
+  @apply grid gap-1 border-b pb-4 text-sm leading-7 text-[var(--text-strong)];
+  border-color: var(--line-soft);
+}
+
+.reader-list li:last-child {
+  @apply border-b-0 pb-0;
+}
+
+.reader-list strong {
+  @apply font-semibold text-[var(--text-strong)];
+}
+
+.transcript-list > * + * {
+  border-top: 1px solid var(--line-soft);
+}
+
+.transcript-row {
+  @apply grid gap-5 px-5 py-5 md:grid-cols-[160px_1fr] md:px-6;
+}
+
+.transcript-meta {
+  @apply flex flex-col gap-2;
+}
+
+.speaker-chip,
+.time-chip {
+  @apply inline-flex w-fit items-center rounded-full px-3 py-1 text-xs;
+}
+
+.speaker-chip {
+  border: 1px solid var(--line-strong);
+  color: var(--text-strong);
+}
+
+.time-chip {
+  background: var(--surface-alt);
+  color: var(--muted);
+}
+
+.info-list {
+  @apply mt-1;
+}
+
+.info-list-top {
+  @apply mt-0;
+}
+
+.info-list > * + * {
+  border-top: 1px solid var(--line-soft);
+}
+
+.info-row {
+  @apply flex items-center justify-between gap-4 py-3 text-sm;
+}
+
+.info-row span,
+.side-copy {
+  @apply text-[var(--muted)];
+}
+
+.info-row strong {
+  @apply text-right text-[var(--text-strong)];
+}
+
+.side-copy {
+  @apply px-5 md:px-6;
+}
+
+.side-action {
+  @apply mx-5 mb-5 mt-4 md:mx-6;
+}
+
+.state-shell {
+  @apply flex min-h-[240px] flex-col items-center justify-center gap-3 text-center;
+}
+
+.state-title {
+  @apply text-lg font-medium text-[var(--text-strong)];
+}
+
+.loader {
+  @apply h-9 w-9 animate-spin rounded-full border-2 border-t-transparent;
+  border-color: var(--accent);
+  border-top-color: transparent;
+}
+
+@media (min-width: 1280px) {
+  .side-column {
+    position: sticky;
+    top: 1.75rem;
+  }
 }
 </style>

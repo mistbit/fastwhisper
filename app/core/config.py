@@ -1,7 +1,6 @@
-from typing import Optional
+from typing import Literal, Optional
 
-from pydantic import PostgresDsn, computed_field
-from pydantic_core import MultiHostUrl
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,7 +9,10 @@ class Settings(BaseSettings):
         env_file=".env", env_ignore_empty=True, extra="ignore"
     )
 
-    # PostgreSQL Configuration
+    # Database Configuration
+    DATABASE_URL: str = "sqlite+aiosqlite:///./storage/fastwhisper.db"
+
+    # PostgreSQL Configuration (optional; useful when switching back to PostgreSQL)
     POSTGRES_SERVER: str = "localhost"
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str = "postgres"
@@ -42,22 +44,31 @@ class Settings(BaseSettings):
     # Storage
     UPLOAD_DIR: str = "./storage/uploads"
     RESULT_DIR: str = "./storage/results"
-    MAX_FILE_SIZE: int = 500 * 1024 * 1024  # 500MB
+    MAX_FILE_SIZE: int = Field(default=500 * 1024 * 1024, gt=0)  # 500MB
+
+    # Runtime mode
+    TASK_RUNNER: Literal["inline", "worker"] = "inline"
+    ENABLE_SPEAKER_DIARIZATION: bool = False
+    ENABLE_LLM_MINUTES: bool = False
 
     # Worker
-    MAX_CONCURRENT_TASKS: int = 3
+    MAX_CONCURRENT_TASKS: int = Field(default=3, gt=0)
+    WORKER_LEASE_SECONDS: int = Field(default=300, gt=0)
+    WORKER_HEARTBEAT_SECONDS: int = Field(default=30, gt=0)
 
-    @computed_field
     @property
-    def DATABASE_URL(self) -> PostgresDsn:
-        return MultiHostUrl.build(
-            scheme="postgresql+asyncpg",
-            username=self.POSTGRES_USER,
-            password=self.POSTGRES_PASSWORD,
-            host=self.POSTGRES_SERVER,
-            port=self.POSTGRES_PORT,
-            path=self.POSTGRES_DB,
-        )
+    def IS_SQLITE(self) -> bool:
+        return self.DATABASE_URL.startswith("sqlite")
+
+    @property
+    def USE_INLINE_TASKS(self) -> bool:
+        return self.TASK_RUNNER == "inline"
+
+    @model_validator(mode="after")
+    def validate_worker_settings(self):
+        if self.WORKER_HEARTBEAT_SECONDS >= self.WORKER_LEASE_SECONDS:
+            raise ValueError("WORKER_HEARTBEAT_SECONDS must be smaller than WORKER_LEASE_SECONDS.")
+        return self
 
 
 settings = Settings()

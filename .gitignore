@@ -24,7 +24,12 @@ wheels/
 .idea/
 .vscode/
 *.log
+.playwright-cli/
+output/
+frontend/node_modules/
+frontend/dist/
 storage/uploads/*
 storage/results/*
+storage/*.db
 !storage/uploads/.gitkeep
 !storage/results/.gitkeep

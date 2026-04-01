@@ -1,173 +1,287 @@
-# FastWhisper - 录音转会议纪要服务
+# FastWhisper
 
-基于 Whisper 的录音转会议纪要服务，支持说话人识别和自动生成会议纪要。
+[简体中文](README.zh.md)
 
-## 功能特性
+FastWhisper is a local-first workspace for turning recordings into transcripts and optional meeting minutes. It ships with audio upload, task history, current-task inspection, retry/delete actions, and optional speaker diarization or LLM-powered minutes.
 
-- 🎤 **音频转录** - 使用 faster-whisper 进行高精度语音识别
-- 👥 **说话人分离** - 使用 pyannote 识别不同说话人
-- 📝 **会议纪要** - 使用 LLM 自动生成结构化会议纪要
-- 🔌 **REST API** - 完整的 RESTful API 接口
-- 🖥️ **Web UI** - 现代化的 Web 界面
+## Screenshots
 
-## 技术栈
+### Home
 
-**后端:**
+![FastWhisper English home](docs/screenshots/home-en.png)
+
+### Task detail
+
+![FastWhisper English task detail](docs/screenshots/detail-en.png)
+
+## What It Is
+
+- Local-first by default: `SQLite + inline task execution`
+- You can run the main workflow without PostgreSQL or Redis
+- The default experience focuses on transcription and task review
+- Speaker diarization and meeting minutes are optional enhancements
+
+## Current Capabilities
+
+- Audio upload and task creation
+- faster-whisper transcription
+- Task history, detail view, retry, and delete
+- Optional speaker diarization
+  - Uses `pyannote` when full dependencies and a Hugging Face token are available
+  - Falls back to local clustering when the pipeline is unavailable
+- Optional structured meeting minutes
+  - Disabled by default
+  - Enabled when LLM settings are configured
+
+## Tech Stack
+
+### Backend
+
 - Python 3.11
 - FastAPI
-- PostgreSQL + SQLAlchemy
-- Redis
+- SQLAlchemy
+- SQLite by default
+- Optional PostgreSQL + separate worker mode
 - faster-whisper
-- pyannote.audio
+- Optional pyannote.audio
 
-**前端:**
-- Vue 3 + Vite
-- TailwindCSS
+### Frontend
+
+- Vue 3
+- Vite
 - Pinia
+- Vue Router
+- Tailwind CSS
 
-## 快速开始
+## Runtime Modes
 
-### 环境要求
+### 1. Default Local Mode
 
-- Python 3.11+
-- Node.js 18+
-- PostgreSQL 15+
-- Redis 7+
-- NVIDIA GPU (推荐)
+Recommended for getting started quickly.
 
-### 使用启动脚本
+- Database: SQLite
+- Task execution: inline inside the API process
+- Dependency file: `requirements-local.txt`
+- LLM minutes disabled by default
+
+### 2. Full Worker Mode
+
+Recommended when you want a separate worker process or a PostgreSQL-backed setup.
+
+- Database: PostgreSQL
+- Task execution: API + dedicated worker
+- Dependency file: `requirements.txt`
+- Works with Docker Compose
+
+Notes:
+
+- The current codebase does not require a standalone message queue for the main workflow.
+- `docker-compose.yml` still includes PostgreSQL / Redis services for full deployments and compatibility.
+
+## Quick Start
+
+### Requirements
+
+- Python `3.11`
+- Node.js `18+`
+- npm
+
+The repo pins Python 3.11 via [`.python-version`](.python-version) and [`pyproject.toml`](pyproject.toml).
+
+### Recommended Local Setup
+
+1. Copy backend config
 
 ```bash
-# 启动所有服务
-./dev.sh all
+cp .env.example .env
+```
 
-# 仅启动后端
+2. Create frontend config
+
+```bash
+cat > frontend/.env <<'EOF'
+VITE_API_TOKEN=your_secure_token_here
+EOF
+```
+
+3. Start everything
+
+```bash
+./dev.sh all
+```
+
+Default addresses:
+
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:8000`
+- API docs: `http://localhost:8000/docs`
+
+If your backend is running on a different port, override the Vite proxy target:
+
+```bash
+VITE_DEV_API_TARGET=http://localhost:18000 ./dev.sh frontend
+```
+
+## Common Commands
+
+```bash
+# Start backend (automatically chooses local or full mode)
 ./dev.sh backend
 
-# 仅启动前端
+# Start frontend only
 ./dev.sh frontend
 
-# 停止所有服务
+# Start everything
+./dev.sh all
+
+# Start dedicated worker (full mode only)
+./dev.sh worker
+
+# Stop services
 ./dev.sh stop
 
-# 查看服务状态
+# Show service status
 ./dev.sh status
 ```
 
-### Docker 部署
+## Manual Startup
+
+### Local Mode
 
 ```bash
-# 配置环境变量
+pip install -r requirements-local.txt
 cp .env.example .env
-# 编辑 .env 文件
-
-# 启动服务
-docker-compose up -d
-
-# 查看日志
-docker-compose logs -f
-```
-
-### 手动启动
-
-**后端:**
-
-```bash
-# 安装依赖
-pip install -r requirements.txt
-
-# 配置环境变量
-cp .env.example .env
-
-# 运行数据库迁移
-alembic upgrade head
-
-# 启动服务
+mkdir -p storage/uploads storage/results
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-**前端:**
+No separate worker is needed in local mode.
+
+### Full Mode
 
 ```bash
-cd frontend
-
-# 安装依赖
-npm install
-
-# 配置环境变量
-echo "VITE_API_TOKEN=your_token" > .env
-
-# 启动开发服务器
-npm run dev
+pip install -r requirements.txt
+cp .env.example .env
+mkdir -p storage/uploads storage/results
+alembic upgrade head
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+python -m app.worker
 ```
 
-## API 文档
-
-启动后端后访问 http://localhost:8000/docs 查看 Swagger 文档。
-
-### 主要接口
-
-| 方法 | 路径 | 描述 |
-|------|------|------|
-| POST | /api/v1/tasks | 上传音频创建任务 |
-| GET | /api/v1/tasks/{task_id}/progress | 查询任务进度 |
-| GET | /api/v1/tasks/{task_id}/minutes | 获取会议纪要 |
-| GET | /api/v1/tasks | 获取任务列表 |
-| DELETE | /api/v1/tasks/{task_id} | 删除任务 |
-
-## 环境配置
-
-主要环境变量 (`.env` 文件):
+### Docker Compose
 
 ```bash
-# 数据库
-POSTGRES_SERVER=localhost
-POSTGRES_PORT=5432
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=your_password
-POSTGRES_DB=fastwhisper
+cp .env.example .env
+docker compose up -d
+docker compose logs -f
+```
 
-# Redis
-REDIS_HOST=localhost
-REDIS_PORT=6379
+## Configuration
 
-# 认证
-API_TOKEN=your_secure_token
+Main backend settings live in `.env`:
+
+```bash
+# Default local database
+DATABASE_URL=sqlite+aiosqlite:///./storage/fastwhisper.db
+
+# API auth
+API_TOKEN=your_secure_token_here
 
 # Whisper
 WHISPER_MODEL=large-v3
 WHISPER_DEVICE=cuda
+WHISPER_COMPUTE_TYPE=float16
 
-# HuggingFace (用于 pyannote)
+# Runtime mode
+TASK_RUNNER=inline
+
+# Optional enhancements
+ENABLE_SPEAKER_DIARIZATION=true
+ENABLE_LLM_MINUTES=false
 HUGGINGFACE_TOKEN=your_huggingface_token
-
-# LLM
-LLM_PROVIDER=qwen
-LLM_API_KEY=your_api_key
+LLM_API_KEY=your_llm_api_key
 LLM_MODEL=qwen-max
+LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 ```
 
-## 项目结构
+Main frontend setting in `frontend/.env`:
 
+```bash
+VITE_API_TOKEN=your_secure_token_here
 ```
+
+During development, `/api` and `/health` are proxied to `http://localhost:8000` by default.  
+Use `VITE_DEV_API_TARGET` if your backend runs elsewhere.
+
+## Suggested Local Defaults
+
+If you only want the core flow working first:
+
+```bash
+WHISPER_MODEL=small
+WHISPER_DEVICE=cpu
+TASK_RUNNER=inline
+ENABLE_LLM_MINUTES=false
+```
+
+If you want better diarization:
+
+- install full dependencies from `requirements.txt`
+- set `HUGGINGFACE_TOKEN`
+- keep `ENABLE_SPEAKER_DIARIZATION=true`
+
+If you want meeting minutes:
+
+- set `LLM_API_KEY`
+- set `ENABLE_LLM_MINUTES=true`
+
+## API Overview
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/api/v1/tasks` | Upload audio and create a task |
+| `GET` | `/api/v1/tasks` | List tasks |
+| `GET` | `/api/v1/tasks/{task_id}` | Get task details |
+| `GET` | `/api/v1/tasks/{task_id}/progress` | Get task progress |
+| `GET` | `/api/v1/tasks/{task_id}/minutes` | Get minutes and transcript |
+| `POST` | `/api/v1/tasks/{task_id}/retry` | Retry a failed task |
+| `DELETE` | `/api/v1/tasks/{task_id}` | Delete a task |
+| `GET` | `/api/v1/tasks/stats/overview` | Get task statistics |
+| `GET` | `/health` | Health check |
+
+## Testing
+
+```bash
+# Backend tests
+pip install -r requirements-test.txt
+pytest -q
+
+# Frontend build
+cd frontend && npm run build
+```
+
+## Frontend Layout
+
+- Left rail: task history
+- Right workspace: upload and current task
+- Built-in Chinese / English UI switch
+
+## Project Structure
+
+```text
 fastwhisper/
-├── app/
-│   ├── api/           # API 路由
-│   ├── core/          # 核心配置
-│   ├── models/        # 数据模型
-│   ├── schemas/       # Pydantic 模型
-│   ├── services/      # 业务服务
-│   └── workers/       # 后台任务
-├── frontend/          # Vue 前端
-│   └── src/
-│       ├── api/       # API 封装
-│       ├── stores/    # 状态管理
-│       ├── components/# UI 组件
-│       └── views/     # 页面视图
-├── alembic/           # 数据库迁移
-├── storage/           # 文件存储
-├── dev.sh             # 开发启动脚本
-└── docker-compose.yml # Docker 配置
+├── app/                  # FastAPI app and services
+├── alembic/              # Database migrations
+├── frontend/             # Vue frontend
+├── docs/screenshots/     # README screenshots
+├── storage/              # Uploads and generated output
+├── requirements-local.txt
+├── requirements.txt
+├── requirements-test.txt
+├── dev.sh
+├── docker-compose.yml
+├── README.md
+└── README.zh.md
 ```
 
 ## License

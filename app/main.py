@@ -1,5 +1,4 @@
 """FastAPI 应用入口"""
-import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -8,7 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import settings
-from app.workers.processor import task_processor
+from app.core.database import SessionLocal, init_database
+from app.services.task_service import TaskService
 
 # 配置日志
 logging.basicConfig(
@@ -19,20 +19,14 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    """应用生命周期管理"""
-    # 启动时
-    logger.info("Starting FastWhisper service...")
-
-    # 启动后台任务处理器
-    processor_task = asyncio.create_task(task_processor.start())
-
+async def lifespan(_: FastAPI):
+    await init_database()
+    if settings.USE_INLINE_TASKS:
+        async with SessionLocal() as db:
+            requeued = await TaskService(db).requeue_inline_processing_tasks()
+            if requeued:
+                logger.info("Requeued %s interrupted inline tasks on startup", requeued)
     yield
-
-    # 关闭时
-    logger.info("Shutting down FastWhisper service...")
-    task_processor.stop()
-    processor_task.cancel()
 
 
 app = FastAPI(
