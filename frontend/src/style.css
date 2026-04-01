@@ -1,0 +1,93 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --bg-canvas: #f5f5f7;
+    --surface: #ffffff;
+    --surface-alt: #f7f7f9;
+    --sidebar-bg: #f7f7f9;
+    --text-strong: #1d1d1f;
+    --muted: #6e6e73;
+    --muted-subtle: #86868b;
+    --line: #e5e5ea;
+    --line-soft: rgba(60, 60, 67, 0.12);
+    --line-strong: rgba(60, 60, 67, 0.18);
+    --accent: #0071e3;
+    --accent-strong: #0062c7;
+    --success: #0a7f55;
+    --danger: #ff3b30;
+    --shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.04);
+    --font-sans: "SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+    --font-mono: "SF Mono", ui-monospace, "Menlo", monospace;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    color: var(--text-strong);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    font-family: var(--font-sans);
+    background: linear-gradient(180deg, #fafafc 0%, var(--bg-canvas) 100%);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #app {
+    min-height: 100vh;
+    background: transparent;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-full px-4 py-2.5 text-sm font-medium transition-colors duration-200;
+    background: var(--accent);
+    color: white;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-full border px-4 py-2.5 text-sm font-medium transition-colors duration-200;
+    background: white;
+    border-color: var(--line-strong);
+    color: var(--text-strong);
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(60, 60, 67, 0.22);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(60, 60, 67, 0.36);
+}
+
+::selection {
+  background: rgba(0, 113, 227, 0.16);
+  color: var(--text-strong);
+}
+
+*:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.16);
+}

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ========== Task Schemas ==========
@@ -20,8 +20,7 @@ class TaskResponse(BaseModel):
     status: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProgressResponse(BaseModel):
@@ -31,12 +30,19 @@ class ProgressResponse(BaseModel):
     progress: int = Field(ge=0, le=100)
     stage: Optional[str] = None
     stage_description: Optional[str] = None
+    error_message: Optional[str] = None
+    attempt_count: int = 0
+    processing_started_at: Optional[datetime] = None
+    processing_seconds: Optional[float] = None
+    queue_seconds: Optional[float] = None
+    last_error_code: Optional[str] = None
+    last_error_label: Optional[str] = None
+    last_error_stage: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
     estimated_remaining: Optional[int] = None  # seconds
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ========== Transcript Schemas ==========
@@ -50,15 +56,14 @@ class TranscriptSegmentResponse(BaseModel):
     text: str
     confidence: Optional[float] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TranscriptResponse(BaseModel):
     """转录结果"""
     full_text: Optional[str] = None
     language: Optional[str] = None
-    segments: List[TranscriptSegmentResponse] = []
+    segments: List[TranscriptSegmentResponse] = Field(default_factory=list)
 
 
 # ========== Minutes Schemas ==========
@@ -85,9 +90,9 @@ class Decision(BaseModel):
 class MinutesResponse(BaseModel):
     """会议纪要"""
     summary: Optional[str] = None
-    key_points: List[KeyPoint] = []
-    action_items: List[ActionItem] = []
-    decisions: List[Decision] = []
+    key_points: List[KeyPoint] = Field(default_factory=list)
+    action_items: List[ActionItem] = Field(default_factory=list)
+    decisions: List[Decision] = Field(default_factory=list)
 
 
 class MinutesDetailResponse(BaseModel):
@@ -96,6 +101,8 @@ class MinutesDetailResponse(BaseModel):
     transcript: TranscriptResponse
     minutes: MinutesResponse
     created_at: Optional[datetime] = None
+    model_used: Optional[str] = None
+    tokens_used: Optional[int] = None
 
 
 # ========== API Response Wrapper ==========
@@ -115,11 +122,19 @@ class TaskListItem(BaseModel):
     filename: str
     status: str
     progress: int
+    attempt_count: int = 0
+    stage: Optional[str] = None
+    error_message: Optional[str] = None
+    processing_started_at: Optional[datetime] = None
+    processing_seconds: Optional[float] = None
+    queue_seconds: Optional[float] = None
+    last_error_code: Optional[str] = None
+    last_error_label: Optional[str] = None
+    last_error_stage: Optional[str] = None
     created_at: datetime
     completed_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TaskListResponse(BaseModel):
@@ -128,3 +143,46 @@ class TaskListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class TaskDetailResponse(BaseModel):
+    """任务详情响应"""
+    task_id: str
+    filename: str
+    file_size: Optional[int] = None
+    status: str
+    progress: int = Field(ge=0, le=100)
+    attempt_count: int = 0
+    stage: Optional[str] = None
+    stage_description: Optional[str] = None
+    error_message: Optional[str] = None
+    processing_started_at: Optional[datetime] = None
+    processing_seconds: Optional[float] = None
+    queue_seconds: Optional[float] = None
+    last_error_code: Optional[str] = None
+    last_error_label: Optional[str] = None
+    last_error_stage: Optional[str] = None
+    language: str
+    speaker_count: Optional[int] = None
+    duration: Optional[float] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+
+class FailureBreakdownItem(BaseModel):
+    code: str
+    label: Optional[str] = None
+    count: int
+
+
+class TaskOverviewResponse(BaseModel):
+    total: int
+    pending: int
+    processing: int
+    completed: int
+    failed: int
+    retried: int
+    avg_queue_seconds: Optional[float] = None
+    avg_processing_seconds: Optional[float] = None
+    failure_breakdown: List[FailureBreakdownItem] = Field(default_factory=list)

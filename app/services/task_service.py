@@ -1,14 +1,15 @@
 """任务管理服务"""
+from collections import Counter
 import logging
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.core.config import settings
 from app.models.task import MeetingMinutes, Task, TranscriptSegment
 
 logger = logging.getLogger(__name__)
@@ -44,10 +45,177 @@ class TaskService:
         await self.db.refresh(task)
         return task
 
-    async def get_task(self, task_id: str) -> Optional[Task]:
+    async def get_task(
+        self,
+        task_id: str,
+        *,
+        include_related: bool = False,
+    ) -> Optional[Task]:
         """获取任务"""
-        result = await self.db.execute(select(Task).where(Task.task_id == task_id))
+        query = select(Task).where(Task.task_id == task_id)
+        if include_related:
+            query = query.options(
+                selectinload(Task.segments),
+                selectinload(Task.minutes),
+            )
+        result = await self.db.execute(query)
         return result.scalar_one_or_none()
+
+    async def claim_pending_tasks(
+        self,
+        limit: int,
+        *,
+        worker_id: str,
+        lease_seconds: int,
+    ) -> list[str]:
+        """原子领取待处理任务，避免重复消费"""
+        if limit <= 0:
+            return []
+
+        now = datetime.now(timezone.utc)
+        lease_expires_at = now + timedelta(seconds=lease_seconds)
+        pending_ids = (
+            select(Task.id)
+            .where(Task.status == "pending")
+            .order_by(Task.created_at)
+            .limit(limit)
+        )
+
+        result = await self.db.execute(
+            update(Task)
+            .where(Task.id.in_(pending_ids))
+            .where(Task.status == "pending")
+            .values(
+                status="processing",
+                stage="queued",
+                progress=0,
+                processing_started_at=now,
+                attempt_count=Task.attempt_count + 1,
+                updated_at=now,
+                heartbeat_at=now,
+                lease_expires_at=lease_expires_at,
+                worker_id=worker_id,
+                error_message=None,
+            )
+            .returning(Task.task_id)
+        )
+        await self.db.commit()
+        return list(result.scalars().all())
+
+    async def start_task(
+        self,
+        task_id: str,
+        *,
+        worker_id: Optional[str] = None,
+        lease_seconds: Optional[int] = None,
+    ) -> bool:
+        """将指定任务标记为开始处理，适用于本地 inline 模式。"""
+        now = datetime.now(timezone.utc)
+        values = {
+            "status": "processing",
+            "stage": "queued",
+            "progress": 0,
+            "processing_started_at": now,
+            "attempt_count": Task.attempt_count + 1,
+            "updated_at": now,
+            "error_message": None,
+            "last_error_code": None,
+            "last_error_stage": None,
+        }
+
+        if worker_id and lease_seconds:
+            values.update(
+                heartbeat_at=now,
+                lease_expires_at=now + timedelta(seconds=lease_seconds),
+                worker_id=worker_id,
+            )
+        else:
+            values.update(
+                heartbeat_at=None,
+                lease_expires_at=None,
+                worker_id=None,
+            )
+
+        result = await self.db.execute(
+            update(Task)
+            .where(Task.task_id == task_id)
+            .where(Task.status == "pending")
+            .values(**values)
+        )
+        await self.db.commit()
+        return (result.rowcount or 0) > 0
+
+    async def requeue_stale_processing_tasks(self, stale_before: datetime) -> int:
+        """仅回收 lease 已过期的处理中任务"""
+        now = datetime.now(timezone.utc)
+        result = await self.db.execute(
+            update(Task)
+            .where(Task.status == "processing")
+            .where(Task.completed_at.is_(None))
+            .where(Task.lease_expires_at.is_not(None))
+            .where(Task.lease_expires_at < stale_before)
+            .values(
+                status="pending",
+                progress=0,
+                stage=None,
+                updated_at=now,
+                heartbeat_at=None,
+                lease_expires_at=None,
+                worker_id=None,
+                error_message="Worker lease expired before task completion. Task requeued.",
+                last_error_code="lease_expired",
+                last_error_stage=Task.stage,
+            )
+        )
+        await self.db.commit()
+        return result.rowcount or 0
+
+    async def requeue_inline_processing_tasks(self) -> int:
+        """本地 inline 模式在重启后标记被中断的处理中任务，便于用户显式重试。"""
+        now = datetime.now(timezone.utc)
+        result = await self.db.execute(
+            update(Task)
+            .where(Task.status == "processing")
+            .where(Task.completed_at.is_(None))
+            .where(Task.worker_id.is_(None))
+            .where(Task.lease_expires_at.is_(None))
+            .values(
+                status="failed",
+                progress=0,
+                stage="failed",
+                updated_at=now,
+                error_message="Local processing was interrupted. Please retry the task.",
+                last_error_code="processing_interrupted",
+                last_error_stage=Task.stage,
+                processing_started_at=None,
+            )
+        )
+        await self.db.commit()
+        return result.rowcount or 0
+
+    async def record_heartbeat(
+        self,
+        task_id: str,
+        *,
+        worker_id: str,
+        lease_seconds: int,
+    ) -> bool:
+        """刷新任务 lease，表示当前 worker 仍在工作"""
+        now = datetime.now(timezone.utc)
+        lease_expires_at = now + timedelta(seconds=lease_seconds)
+        result = await self.db.execute(
+            update(Task)
+            .where(Task.task_id == task_id)
+            .where(Task.worker_id == worker_id)
+            .where(Task.status == "processing")
+            .values(
+                heartbeat_at=now,
+                lease_expires_at=lease_expires_at,
+                updated_at=now,
+            )
+        )
+        await self.db.commit()
+        return (result.rowcount or 0) > 0
 
     async def update_progress(
         self,
@@ -56,6 +224,8 @@ class TaskService:
         progress: Optional[int] = None,
         stage: Optional[str] = None,
         error_message: Optional[str] = None,
+        last_error_code: Optional[str] = None,
+        last_error_stage: Optional[str] = None,
     ) -> None:
         """更新任务进度"""
         values = {"updated_at": datetime.now(timezone.utc)}
@@ -66,11 +236,22 @@ class TaskService:
             values["progress"] = progress
         if stage:
             values["stage"] = stage
-        if error_message:
+        if error_message is not None:
             values["error_message"] = error_message
+        if last_error_code is not None:
+            values["last_error_code"] = last_error_code
+        if last_error_stage is not None:
+            values["last_error_stage"] = last_error_stage
 
         if status == "completed":
             values["completed_at"] = datetime.now(timezone.utc)
+            values["heartbeat_at"] = None
+            values["lease_expires_at"] = None
+            values["worker_id"] = None
+        elif status == "failed":
+            values["heartbeat_at"] = None
+            values["lease_expires_at"] = None
+            values["worker_id"] = None
 
         await self.db.execute(
             update(Task).where(Task.task_id == task_id).values(**values)
@@ -87,10 +268,22 @@ class TaskService:
         """标记任务完成"""
         await self.update_progress(task_id, status="completed", progress=100)
 
-    async def mark_failed(self, task_id: str, error_message: str) -> None:
+    async def mark_failed(
+        self,
+        task_id: str,
+        error_message: str,
+        *,
+        error_code: Optional[str] = None,
+        error_stage: Optional[str] = None,
+    ) -> None:
         """标记任务失败"""
         await self.update_progress(
-            task_id, status="failed", error_message=error_message
+            task_id,
+            status="failed",
+            error_message=error_message,
+            stage="failed",
+            last_error_code=error_code,
+            last_error_stage=error_stage,
         )
 
     async def save_transcript(
@@ -204,3 +397,124 @@ class TaskService:
         await self.db.delete(task)
         await self.db.commit()
         return True
+
+    async def retry_task(self, task_id: str) -> Optional[Task]:
+        """重试失败任务，清理旧结果并重新入队"""
+        task = await self.get_task(task_id)
+        if not task:
+            return None
+
+        if task.status != "failed":
+            raise ValueError("Only failed tasks can be retried.")
+
+        if not task.file_path or not os.path.exists(task.file_path):
+            raise FileNotFoundError("Source audio file is missing.")
+
+        await self.db.execute(
+            TranscriptSegment.__table__.delete().where(
+                TranscriptSegment.task_id == task_id
+            )
+        )
+        await self.db.execute(
+            MeetingMinutes.__table__.delete().where(
+                MeetingMinutes.task_id == task_id
+            )
+        )
+        await self.db.execute(
+            update(Task)
+            .where(Task.task_id == task_id)
+            .values(
+                status="pending",
+                progress=0,
+                stage=None,
+                error_message=None,
+                processing_started_at=None,
+                completed_at=None,
+                heartbeat_at=None,
+                lease_expires_at=None,
+                worker_id=None,
+                last_error_code=None,
+                last_error_stage=None,
+                updated_at=datetime.now(timezone.utc),
+            )
+        )
+        await self.db.commit()
+        return await self.get_task(task_id)
+
+    async def get_task_stats(self) -> dict:
+        """获取任务概览统计"""
+        rows = (
+            await self.db.execute(
+                select(
+                    Task.status,
+                    Task.created_at,
+                    Task.processing_started_at,
+                    Task.completed_at,
+                    Task.updated_at,
+                    Task.last_error_code,
+                    Task.attempt_count,
+                )
+            )
+        ).all()
+
+        status_counts = Counter()
+        failure_counts = Counter()
+        queue_waits: list[float] = []
+        processing_times: list[float] = []
+        retried = 0
+
+        for row in rows:
+            status_counts[row.status] += 1
+            if row.attempt_count and row.attempt_count > 1:
+                retried += 1
+
+            if row.processing_started_at and row.created_at:
+                queue_waits.append(
+                    max(
+                        0.0,
+                        (row.processing_started_at - row.created_at).total_seconds(),
+                    )
+                )
+
+            if row.processing_started_at:
+                end_time = None
+                if row.status == "completed" and row.completed_at:
+                    end_time = row.completed_at
+                elif row.status == "failed" and row.updated_at:
+                    end_time = row.updated_at
+
+                if end_time:
+                    processing_times.append(
+                        max(
+                            0.0,
+                            (end_time - row.processing_started_at).total_seconds(),
+                        )
+                    )
+
+            if row.status == "failed" and row.last_error_code:
+                failure_counts[row.last_error_code] += 1
+
+        failure_breakdown = [
+            {"code": code, "count": count}
+            for code, count in failure_counts.most_common(5)
+        ]
+
+        return {
+            "total": len(rows),
+            "pending": status_counts["pending"],
+            "processing": status_counts["processing"],
+            "completed": status_counts["completed"],
+            "failed": status_counts["failed"],
+            "retried": retried,
+            "avg_queue_seconds": (
+                round(sum(queue_waits) / len(queue_waits), 2)
+                if queue_waits
+                else None
+            ),
+            "avg_processing_seconds": (
+                round(sum(processing_times) / len(processing_times), 2)
+                if processing_times
+                else None
+            ),
+            "failure_breakdown": failure_breakdown,
+        }
