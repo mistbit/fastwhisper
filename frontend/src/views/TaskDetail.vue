@@ -196,6 +196,10 @@
               <span>{{ t('detailSpeakerSetting') }}</span>
               <strong>{{ task.speaker_count || '--' }}</strong>
             </div>
+            <div class="info-row">
+              <span>{{ t('detailAsrEngine') }}</span>
+              <strong>{{ getEngineLabel(task.asr_engine) }}</strong>
+            </div>
             <div v-if="minutes?.transcript?.segments?.length" class="info-row">
               <span>{{ t('detailTranscriptCount') }}</span>
               <strong>{{ formatNumber(minutes.transcript.segments.length) }}</strong>
@@ -369,6 +373,13 @@ function getStageText(stage) {
     saving: t('stageSaving'),
     failed: t('stageFailed'),
   }[stage] || stage
+}
+
+function getEngineLabel(engine) {
+  return {
+    whisper: t('engineWhisper'),
+    sensevoice: t('engineSensevoice'),
+  }[engine] || t('engineDefault')
 }
 
 function formatDate(value) {

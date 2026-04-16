@@ -105,6 +105,7 @@ def build_task_list_item(task) -> TaskListItem:
         last_error_code=task.last_error_code,
         last_error_label=_get_error_label(task.last_error_code),
         last_error_stage=task.last_error_stage,
+        asr_engine=task.asr_engine,
         created_at=_normalize_datetime(task.created_at),
         completed_at=_normalize_datetime(task.completed_at),
     )
@@ -131,6 +132,7 @@ def build_task_detail_response(task) -> TaskDetailResponse:
         last_error_stage=task.last_error_stage,
         language=task.language,
         speaker_count=task.speaker_count,
+        asr_engine=task.asr_engine,
         duration=task.duration,
         created_at=_normalize_datetime(task.created_at),
         updated_at=_normalize_datetime(task.updated_at),
@@ -172,6 +174,10 @@ async def create_task(
         Optional[int],
         Form(ge=1, le=20, description="预期说话人数量"),
     ] = None,
+    asr_engine: Annotated[
+        Optional[Literal["whisper", "sensevoice"]],
+        Form(description="ASR引擎: whisper/sensevoice"),
+    ] = None,
     db: AsyncSession = Depends(get_db),
     _: str = Depends(get_current_user),
 ):
@@ -191,6 +197,7 @@ async def create_task(
             file_size=file_size,
             language=language,
             speaker_count=speaker_count,
+            asr_engine=asr_engine,
         )
 
         if settings.USE_INLINE_TASKS:

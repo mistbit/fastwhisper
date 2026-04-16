@@ -54,6 +54,7 @@ class Task(Base):
     # Config
     language: Mapped[str] = mapped_column(String(10), default="auto")
     speaker_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    asr_engine: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(

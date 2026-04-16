@@ -131,6 +131,7 @@ class TaskListItem(BaseModel):
     last_error_code: Optional[str] = None
     last_error_label: Optional[str] = None
     last_error_stage: Optional[str] = None
+    asr_engine: Optional[str] = None
     created_at: datetime
     completed_at: Optional[datetime] = None
 
@@ -164,6 +165,7 @@ class TaskDetailResponse(BaseModel):
     last_error_stage: Optional[str] = None
     language: str
     speaker_count: Optional[int] = None
+    asr_engine: Optional[str] = None
     duration: Optional[float] = None
     created_at: datetime
     updated_at: Optional[datetime] = None

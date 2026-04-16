@@ -33,6 +33,7 @@ export const taskApi = {
     formData.append('file', file)
     if (options.language) formData.append('language', options.language)
     if (options.speaker_count) formData.append('speaker_count', options.speaker_count)
+    if (options.asr_engine) formData.append('asr_engine', options.asr_engine)
     return api.post('/api/v1/tasks', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })

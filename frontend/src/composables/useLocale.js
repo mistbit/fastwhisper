@@ -79,6 +79,12 @@ const messages = {
     speakerTwo: '两人',
     speakerThree: '三人',
     speakerFour: '四人',
+    engineLabel: '识别引擎',
+    engineDefault: '跟随系统',
+    engineWhisper: 'Whisper',
+    engineSensevoice: 'SenseVoice',
+    engineWhisperDesc: '通用多语言',
+    engineSensevoiceDesc: '中文高精度',
 
     // Task detail
     detailBack: '返回任务列表',
@@ -104,6 +110,7 @@ const messages = {
     detailAudioDuration: '音频时长',
     detailLanguageSetting: '语言设置',
     detailSpeakerSetting: '说话人数',
+    detailAsrEngine: '识别引擎',
     detailTranscriptCount: '转录片段',
     detailFailureType: '失败分类',
     detailActionsTitle: '操作',
@@ -219,6 +226,12 @@ const messages = {
     speakerTwo: 'Two',
     speakerThree: 'Three',
     speakerFour: 'Four',
+    engineLabel: 'ASR Engine',
+    engineDefault: 'System default',
+    engineWhisper: 'Whisper',
+    engineSensevoice: 'SenseVoice',
+    engineWhisperDesc: 'General multilingual',
+    engineSensevoiceDesc: 'High accuracy Chinese',
 
     // Task detail
     detailBack: 'Back to tasks',
@@ -244,6 +257,7 @@ const messages = {
     detailAudioDuration: 'Audio duration',
     detailLanguageSetting: 'Language',
     detailSpeakerSetting: 'Speakers',
+    detailAsrEngine: 'ASR Engine',
     detailTranscriptCount: 'Segments',
     detailFailureType: 'Failure type',
     detailActionsTitle: 'Actions',

@@ -146,13 +146,14 @@ class TaskProcessor:
                 audio_path = task.file_path
                 language = task.language
                 speaker_count = task.speaker_count
+                task_asr_engine = task.asr_engine
 
                 current_stage = "preprocessing"
                 await task_service.mark_processing(task_id, "preprocessing", 5)
 
                 current_stage = "transcribing"
                 await task_service.mark_processing(task_id, "transcribing", 10)
-                asr_service = get_asr_service()
+                asr_service = get_asr_service(task_asr_engine)
                 transcript_result = await asr_service.transcribe(audio_path, language)
                 await task_service.update_progress(task_id, progress=50)
 

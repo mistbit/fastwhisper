@@ -28,6 +28,7 @@ class TaskService:
         file_size: Optional[int] = None,
         language: str = "auto",
         speaker_count: Optional[int] = None,
+        asr_engine: Optional[str] = None,
     ) -> Task:
         """创建新任务"""
         task = Task(
@@ -37,6 +38,7 @@ class TaskService:
             file_size=file_size,
             language=language,
             speaker_count=speaker_count,
+            asr_engine=asr_engine,
             status="pending",
             progress=0,
         )

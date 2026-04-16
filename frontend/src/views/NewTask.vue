@@ -92,6 +92,23 @@
               </button>
             </div>
           </div>
+
+          <div class="field">
+            <label class="field-label">{{ t('engineLabel') }}</label>
+            <div class="engine-group">
+              <button
+                v-for="option in engineOptions"
+                :key="`engine-${option.value || 'default'}`"
+                type="button"
+                class="engine-chip"
+                :class="{ 'engine-chip-active': asrEngine === option.value }"
+                @click="asrEngine = option.value"
+              >
+                <span class="engine-chip-name">{{ option.label }}</span>
+                <span class="engine-chip-desc">{{ option.desc }}</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         <div v-if="error" class="error-note">
@@ -118,6 +135,7 @@ const fileName = ref('')
 const uploading = ref(false)
 const language = ref('auto')
 const speakerCount = ref('')
+const asrEngine = ref('')
 const error = computed(() => taskStore.error)
 
 const acceptTypes = '.mp3,.wav,.m4a,.webm,.ogg,.flac,.aac'
@@ -133,6 +151,12 @@ const speakerOptions = computed(() => [
   { value: '2', label: t('speakerTwo') },
   { value: '3', label: t('speakerThree') },
   { value: '4', label: t('speakerFour') },
+])
+
+const engineOptions = computed(() => [
+  { value: '', label: t('engineDefault'), desc: '' },
+  { value: 'whisper', label: t('engineWhisper'), desc: t('engineWhisperDesc') },
+  { value: 'sensevoice', label: t('engineSensevoice'), desc: t('engineSensevoiceDesc') },
 ])
 
 const uploadTitle = computed(() => {
@@ -161,6 +185,9 @@ async function processFile(file) {
     const options = { language: language.value }
     if (speakerCount.value) {
       options.speaker_count = Number(speakerCount.value)
+    }
+    if (asrEngine.value) {
+      options.asr_engine = asrEngine.value
     }
 
     const task = await taskStore.createTask(file, options)
@@ -295,6 +322,39 @@ async function processFile(file) {
   border-color: var(--accent);
   background: rgba(0, 113, 227, 0.06);
   color: var(--accent);
+}
+
+.engine-group {
+  @apply flex flex-col gap-2;
+}
+
+.engine-chip {
+  @apply flex flex-col items-start rounded-lg border px-3 py-2.5 text-left transition-colors duration-150;
+  border-color: var(--line);
+  background: white;
+}
+
+.engine-chip:hover {
+  border-color: rgba(0, 113, 227, 0.2);
+}
+
+.engine-chip-active {
+  border-color: var(--accent);
+  background: rgba(0, 113, 227, 0.06);
+}
+
+.engine-chip-name {
+  @apply text-sm font-medium;
+  color: var(--text-strong);
+}
+
+.engine-chip-active .engine-chip-name {
+  color: var(--accent);
+}
+
+.engine-chip-desc {
+  @apply text-xs;
+  color: var(--muted);
 }
 
 .error-note {
