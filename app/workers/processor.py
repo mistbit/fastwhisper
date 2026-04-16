@@ -9,10 +9,10 @@ from datetime import datetime, timezone
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.services.aligner_service import transcript_aligner
+from app.services.asr_factory import get_asr_service
 from app.services.diarization_service import diarization_service
 from app.services.llm_service import llm_service
 from app.services.task_service import TaskService
-from app.services.whisper_service import whisper_service
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +152,8 @@ class TaskProcessor:
 
                 current_stage = "transcribing"
                 await task_service.mark_processing(task_id, "transcribing", 10)
-                transcript_result = await whisper_service.transcribe(audio_path, language)
+                asr_service = get_asr_service()
+                transcript_result = await asr_service.transcribe(audio_path, language)
                 await task_service.update_progress(task_id, progress=50)
 
                 current_stage = "diarizing"

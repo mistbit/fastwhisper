@@ -93,13 +93,22 @@ class WhisperService:
         model = self._get_model()
         lang_param = None if language == "auto" else language
 
-        segments_gen, info = model.transcribe(
-            audio_path,
+        transcribe_kwargs = dict(
             language=lang_param,
-            beam_size=5,
+            beam_size=settings.WHISPER_BEAM_SIZE,
             vad_filter=True,
             vad_parameters=dict(min_silence_duration_ms=500),
+            condition_on_previous_text=True,
+            word_timestamps=True,
         )
+
+        temperature = settings.WHISPER_TEMPERATURE
+        if temperature == 0.0:
+            transcribe_kwargs["temperature"] = 0.0
+        else:
+            transcribe_kwargs["temperature"] = [temperature, temperature + 0.2, temperature + 0.4]
+
+        segments_gen, info = model.transcribe(audio_path, **transcribe_kwargs)
 
         segments = []
         full_text = []

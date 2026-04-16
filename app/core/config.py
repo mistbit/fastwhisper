@@ -27,10 +27,18 @@ class Settings(BaseSettings):
     # Auth - 固定 Token 认证
     API_TOKEN: str = ""
 
+    # ASR Engine Selection
+    ASR_ENGINE: Literal["whisper", "sensevoice"] = "whisper"
+
     # Whisper Configuration
-    WHISPER_MODEL: str = "large-v3"  # tiny/base/small/medium/large-v3
+    WHISPER_MODEL: str = "large-v3"  # tiny/base/small/medium/large-v3/large-v3-turbo
     WHISPER_DEVICE: str = "cuda"  # cuda/cpu
     WHISPER_COMPUTE_TYPE: str = "float16"  # float16/int8
+    WHISPER_BEAM_SIZE: int = 5
+    WHISPER_TEMPERATURE: float = 0.0
+
+    # SenseVoice (FunASR) Configuration
+    SENSEVOICE_MODEL: str = "iic/SenseVoiceSmall"
 
     # Diarization - pyannote 需要 HuggingFace Token
     HUGGINGFACE_TOKEN: str = ""
