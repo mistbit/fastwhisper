@@ -6,28 +6,33 @@
 
     <div v-else-if="task" class="detail-grid">
       <section class="main-column">
-        <button @click="router.push({ name: 'home' })" class="back-link">
-          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-          </svg>
-          {{ t('detailBack') }}
-        </button>
-
+        <!-- Header -->
         <header class="detail-header">
           <div>
             <h1 class="detail-title">{{ task.filename }}</h1>
             <p class="detail-copy">{{ leadCopy }}</p>
           </div>
 
-          <span class="status-pill" :class="`status-pill-${task.status}`">
-            {{ getStatusText(task.status) }}
-          </span>
+          <div class="detail-header-actions">
+            <span class="status-badge" :class="`status-badge-${task.status}`">
+              {{ getStatusText(task.status) }}
+            </span>
+            <button
+              v-if="task.status === 'failed'"
+              class="btn-secondary"
+              :disabled="retrying"
+              @click="handleRetry"
+            >
+              {{ retrying ? t('retrying') : t('retry') }}
+            </button>
+          </div>
         </header>
 
-        <section v-if="task.status === 'pending' || task.status === 'processing'" class="surface progress-surface">
+        <!-- Progress -->
+        <section v-if="task.status === 'pending' || task.status === 'processing'" class="card progress-card">
           <div class="progress-head">
             <div>
-              <p class="section-label">{{ t('detailProgressTitle') }}</p>
+              <p class="progress-label-text">{{ t('detailProgressTitle') }}</p>
               <strong class="progress-value">{{ task.progress }}%</strong>
             </div>
           </div>
@@ -45,48 +50,52 @@
           </p>
         </section>
 
-        <section v-if="task.status === 'failed'" class="surface alert-surface alert-error">
-          <div>
-            <p>{{ task.error_message || t('detailFailedFallback') }}</p>
-            <p v-if="task.last_error_stage" class="alert-meta">
-              {{ t('detailFailureStage') }} · {{ getStageText(task.last_error_stage) }}
-            </p>
+        <!-- Error -->
+        <section v-if="task.status === 'failed'" class="card alert-card">
+          <div class="alert-content">
+            <svg class="alert-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.75">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            </svg>
+            <div>
+              <p class="alert-text">{{ task.error_message || t('detailFailedFallback') }}</p>
+              <p v-if="task.last_error_stage" class="alert-meta">
+                {{ t('detailFailureStage') }} · {{ getStageText(task.last_error_stage) }}
+              </p>
+            </div>
           </div>
-
-          <button class="secondary-button" :disabled="retrying" @click="handleRetry">
+          <button class="btn-secondary" :disabled="retrying" @click="handleRetry">
             {{ retrying ? t('retrying') : t('retry') }}
           </button>
         </section>
 
-        <section v-if="pageError" class="surface alert-surface alert-error">
-          <p>{{ pageError }}</p>
+        <!-- Page error -->
+        <section v-if="pageError" class="card alert-card">
+          <p class="alert-text">{{ pageError }}</p>
         </section>
 
+        <!-- Results tabs -->
         <template v-if="task.status === 'completed' && minutes">
-          <section class="tabbar">
-            <div class="tab-group">
-              <button
-                v-for="tab in tabs"
-                :key="tab.id"
-                class="tab-button"
-                :class="{ 'tab-button-active': activeTab === tab.id }"
-                @click="activeTab = tab.id"
-              >
-                {{ tab.label }}
-              </button>
-            </div>
-          </section>
+          <div class="tab-bar">
+            <button
+              v-for="tab in tabs"
+              :key="tab.id"
+              class="tab-btn"
+              :class="{ 'tab-btn-active': activeTab === tab.id }"
+              @click="activeTab = tab.id"
+            >
+              {{ tab.label }}
+            </button>
+          </div>
 
-          <section v-show="activeTab === 'minutes'" class="surface reader-surface">
+          <!-- Minutes tab -->
+          <section v-show="activeTab === 'minutes'" class="card">
             <div class="reader-section">
-              <p class="section-label">{{ t('minutesSummary') }}</p>
-              <h2 class="reader-title">{{ t('minutesSummary') }}</h2>
+              <p class="reader-label">{{ t('minutesSummary') }}</p>
               <p class="reader-text">{{ minutes.minutes?.summary || t('noMinutes') }}</p>
             </div>
 
             <div v-if="minutes.minutes?.key_points?.length" class="reader-section">
-              <p class="section-label">{{ t('minutesKeyPoints') }}</p>
-              <h2 class="reader-title">{{ t('minutesKeyPoints') }}</h2>
+              <p class="reader-label">{{ t('minutesKeyPoints') }}</p>
               <ul class="reader-list">
                 <li v-for="(point, index) in minutes.minutes.key_points" :key="index">
                   <strong>{{ point.title }}</strong>
@@ -96,8 +105,7 @@
             </div>
 
             <div v-if="minutes.minutes?.action_items?.length" class="reader-section">
-              <p class="section-label">{{ t('minutesActions') }}</p>
-              <h2 class="reader-title">{{ t('minutesActions') }}</h2>
+              <p class="reader-label">{{ t('minutesActions') }}</p>
               <ul class="reader-list">
                 <li v-for="(item, index) in minutes.minutes.action_items" :key="index">
                   <strong>{{ item.assignee || '-' }}</strong>
@@ -107,8 +115,7 @@
             </div>
 
             <div v-if="minutes.minutes?.decisions?.length" class="reader-section">
-              <p class="section-label">{{ t('minutesDecisions') }}</p>
-              <h2 class="reader-title">{{ t('minutesDecisions') }}</h2>
+              <p class="reader-label">{{ t('minutesDecisions') }}</p>
               <ul class="reader-list">
                 <li v-for="(decision, index) in minutes.minutes.decisions" :key="index">
                   <strong>{{ decision.topic }}</strong>
@@ -118,12 +125,8 @@
             </div>
           </section>
 
-          <section v-show="activeTab === 'transcript'" class="surface reader-surface">
-            <header class="reader-section">
-              <p class="section-label">{{ t('transcriptHeading') }}</p>
-              <h2 class="reader-title">{{ t('transcriptHeading') }}</h2>
-            </header>
-
+          <!-- Transcript tab -->
+          <section v-show="activeTab === 'transcript'" class="card">
             <div v-if="minutes.transcript?.segments?.length" class="transcript-list">
               <article
                 v-for="(segment, index) in minutes.transcript.segments"
@@ -134,23 +137,26 @@
                   <span class="speaker-chip">{{ segment.speaker_label || segment.speaker }}</span>
                   <span class="time-chip">{{ formatTime(segment.start_time) }}</span>
                 </div>
-                <p class="transcript-copy">{{ segment.text }}</p>
+                <p class="transcript-text">{{ segment.text }}</p>
               </article>
             </div>
 
-            <p v-else class="reader-text reader-empty">{{ t('noTranscript') }}</p>
+            <div v-else class="empty-section">
+              <p>{{ t('noTranscript') }}</p>
+            </div>
           </section>
         </template>
 
-        <section v-else-if="task.status === 'completed'" class="surface alert-surface">
+        <section v-else-if="task.status === 'completed'" class="card empty-section">
           <p>{{ t('noMinutes') }}</p>
         </section>
       </section>
 
+      <!-- Side column -->
       <aside class="side-column">
-        <section class="surface info-surface">
-          <div class="surface-head compact-head">
-            <h2 class="section-title">{{ t('detailSummaryTitle') }}</h2>
+        <section class="card side-card">
+          <div class="side-card-header">
+            <h2 class="side-card-title">{{ t('detailSummaryTitle') }}</h2>
           </div>
 
           <div class="info-list">
@@ -201,29 +207,12 @@
           </div>
         </section>
 
-        <section class="surface info-surface">
-          <div class="surface-head compact-head">
-            <h2 class="section-title">{{ t('detailActionsTitle') }}</h2>
+        <section v-if="minutes?.model_used || minutes?.tokens_used" class="card side-card">
+          <div class="side-card-header">
+            <h2 class="side-card-title">{{ t('detailOutputTitle') }}</h2>
           </div>
 
-          <p class="side-copy">{{ t('detailActionsBody') }}</p>
-
-          <button
-            v-if="task.status === 'failed'"
-            class="secondary-button side-action"
-            :disabled="retrying"
-            @click="handleRetry"
-          >
-            {{ retrying ? t('retrying') : t('retry') }}
-          </button>
-        </section>
-
-        <section v-if="minutes?.model_used || minutes?.tokens_used" class="surface info-surface">
-          <div class="surface-head compact-head">
-            <h2 class="section-title">{{ t('detailOutputTitle') }}</h2>
-          </div>
-
-          <div class="info-list info-list-tight">
+          <div class="info-list">
             <div class="info-row">
               <span>{{ t('detailLlm') }}</span>
               <strong>{{ minutes?.model_used || t('modelUnknown') }}</strong>
@@ -237,13 +226,16 @@
       </aside>
     </div>
 
+    <!-- Not found -->
     <div v-else-if="notFound" class="state-shell">
       <p class="state-title">{{ t('detailMissing') }}</p>
+      <router-link to="/tasks" class="btn-secondary mt-4">{{ t('detailBack') }}</router-link>
     </div>
 
+    <!-- Error state -->
     <div v-else class="state-shell">
       <p class="state-title">{{ t('detailUnavailable') }}</p>
-      <button class="secondary-button mt-4" @click="loadTask">{{ t('detailRetryLoad') }}</button>
+      <button class="btn-secondary mt-4" @click="loadTask">{{ t('detailRetryLoad') }}</button>
     </div>
   </div>
 </template>
@@ -426,7 +418,7 @@ function formatTime(seconds) {
 }
 
 .detail-grid {
-  @apply grid gap-5 xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start;
+  @apply grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start;
 }
 
 .main-column {
@@ -437,69 +429,53 @@ function formatTime(seconds) {
   @apply space-y-5;
 }
 
-.back-link {
-  @apply inline-flex items-center gap-2 text-sm text-[var(--muted)] transition-colors duration-200 hover:text-[var(--text-strong)];
-}
-
+/* ── Header ── */
 .detail-header {
-  @apply flex flex-col gap-4 border-b border-[var(--line)] pb-5 md:flex-row md:items-start md:justify-between;
+  @apply flex flex-col gap-4 pb-5 md:flex-row md:items-start md:justify-between;
+  border-bottom: 1px solid var(--line);
 }
 
 .detail-title {
-  @apply text-2xl font-semibold tracking-tight text-[var(--text-strong)] md:text-[2rem];
+  @apply text-2xl font-semibold tracking-tight;
+  color: var(--text-strong);
 }
 
 .detail-copy {
-  @apply mt-2 max-w-3xl text-sm leading-7 text-[var(--muted)];
+  @apply mt-2 max-w-3xl text-sm leading-7;
+  color: var(--muted);
 }
 
-.surface {
-  @apply overflow-hidden rounded-[22px] border;
-  border-color: var(--line);
-  background: var(--surface);
-  box-shadow: var(--shadow-soft);
+.detail-header-actions {
+  @apply flex items-center gap-3;
 }
 
-.surface-head {
-  @apply border-b px-5 py-4 md:px-6;
-  border-color: var(--line);
+/* ── Progress card ── */
+.progress-card {
+  @apply p-5;
 }
 
-.compact-head {
-  @apply border-b-0 pb-3;
+.progress-head {
+  @apply flex items-start justify-between;
 }
 
-.section-title {
-  @apply text-[1.05rem] font-semibold tracking-tight text-[var(--text-strong)];
-}
-
-.section-label {
-  @apply text-xs font-medium text-[var(--muted)];
-}
-
-.progress-surface,
-.alert-surface,
-.info-surface {
-  @apply px-5 py-5 md:px-6;
+.progress-label-text {
+  @apply text-xs font-medium;
+  color: var(--muted);
 }
 
 .progress-value {
-  @apply mt-2 block text-4xl font-semibold tracking-tight text-[var(--text-strong)];
-}
-
-.progress-copy,
-.progress-meta,
-.side-copy {
-  @apply text-sm leading-7 text-[var(--muted)];
+  @apply mt-1 block text-3xl font-semibold tracking-tight;
+  color: var(--text-strong);
 }
 
 .progress-copy {
-  @apply mt-4;
+  @apply mt-3 text-sm;
+  color: var(--muted);
 }
 
 .progress-track {
-  @apply mt-5 h-[5px] overflow-hidden rounded-full;
-  background: rgba(0, 113, 227, 0.12);
+  @apply mt-4 h-1.5 overflow-hidden rounded-full;
+  background: rgba(0, 113, 227, 0.1);
 }
 
 .progress-bar {
@@ -508,118 +484,86 @@ function formatTime(seconds) {
 }
 
 .progress-meta {
-  @apply mt-3;
+  @apply mt-3 text-sm;
+  color: var(--muted);
 }
 
-.status-pill {
-  @apply inline-flex h-fit items-center rounded-full px-3 py-1 text-xs font-medium;
+/* ── Alert card ── */
+.alert-card {
+  @apply flex flex-col gap-4 p-5 text-sm md:flex-row md:items-center md:justify-between;
+  background: rgba(255, 59, 48, 0.03);
+  border-color: rgba(255, 59, 48, 0.12);
 }
 
-.status-pill-pending {
-  background: rgba(100, 116, 139, 0.12);
-  color: #475569;
+.alert-content {
+  @apply flex items-start gap-3;
 }
 
-.status-pill-processing {
-  background: rgba(0, 113, 227, 0.12);
-  color: var(--accent);
-}
-
-.status-pill-completed {
-  background: rgba(5, 150, 105, 0.12);
-  color: var(--success);
-}
-
-.status-pill-failed {
-  background: rgba(255, 59, 48, 0.12);
+.alert-icon {
+  @apply mt-0.5 h-5 w-5 shrink-0;
   color: var(--danger);
 }
 
-.alert-surface {
-  @apply flex flex-col gap-4 text-sm leading-6 text-[var(--text-strong)] md:flex-row md:items-center md:justify-between;
-}
-
-.alert-error {
-  background: rgba(255, 59, 48, 0.04);
-  border-color: rgba(255, 59, 48, 0.16);
+.alert-text {
+  color: var(--text-strong);
 }
 
 .alert-meta {
-  @apply mt-1 text-xs text-[var(--muted)];
+  @apply mt-1 text-xs;
+  color: var(--muted);
 }
 
-.tabbar {
-  @apply border-b border-[var(--line)] pb-4;
+/* ── Tabs ── */
+.tab-bar {
+  @apply flex gap-2;
 }
 
-.tab-group {
-  @apply flex flex-wrap gap-2;
-}
-
-.tab-button,
-.secondary-button {
-  @apply inline-flex items-center justify-center rounded-full px-4 text-sm font-medium transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-45;
-  height: 2.5rem;
-}
-
-.tab-button {
-  @apply border;
-  border-color: var(--line-strong);
+.tab-btn {
+  @apply rounded-lg border px-4 py-2 text-sm font-medium transition-colors duration-150;
+  border-color: var(--line);
   background: white;
   color: var(--muted);
 }
 
-.tab-button-active {
+.tab-btn:hover {
+  border-color: rgba(0, 113, 227, 0.2);
+  color: var(--text-strong);
+}
+
+.tab-btn-active {
   background: var(--text-strong);
   border-color: var(--text-strong);
   color: white;
 }
 
-.secondary-button {
-  border: 1px solid var(--line-strong);
-  background: white;
-  color: var(--text-strong);
-}
-
-.secondary-button:hover {
-  border-color: rgba(0, 113, 227, 0.24);
-  color: var(--accent);
-}
-
+/* ── Reader ── */
 .reader-section {
-  @apply px-5 py-5 md:px-6;
+  @apply px-5 py-5;
 }
 
 .reader-section + .reader-section {
-  @apply border-t;
-  border-color: var(--line);
+  border-top: 1px solid var(--line);
 }
 
-.reader-title {
-  @apply mt-1 text-[1.05rem] font-semibold tracking-tight text-[var(--text-strong)];
-}
-
-.reader-text,
-.transcript-copy {
-  @apply text-sm leading-8 text-[var(--text-strong)];
+.reader-label {
+  @apply text-xs font-medium uppercase tracking-wider;
+  color: var(--muted);
 }
 
 .reader-text {
-  @apply mt-3;
+  @apply mt-2 text-sm leading-8;
+  color: var(--text-strong);
   white-space: pre-wrap;
 }
 
-.reader-empty {
-  @apply px-5 py-5 md:px-6;
-}
-
 .reader-list {
-  @apply mt-4 space-y-4;
+  @apply mt-3 space-y-3;
 }
 
 .reader-list li {
-  @apply grid gap-1 border-b pb-4 text-sm leading-7 text-[var(--text-strong)];
+  @apply grid gap-1 border-b pb-3 text-sm leading-7;
   border-color: var(--line-soft);
+  color: var(--text-strong);
 }
 
 .reader-list li:last-child {
@@ -627,24 +571,26 @@ function formatTime(seconds) {
 }
 
 .reader-list strong {
-  @apply font-semibold text-[var(--text-strong)];
+  @apply font-semibold;
+  color: var(--text-strong);
 }
 
+/* ── Transcript ── */
 .transcript-list > * + * {
   border-top: 1px solid var(--line-soft);
 }
 
 .transcript-row {
-  @apply grid gap-5 px-5 py-5 md:grid-cols-[160px_1fr] md:px-6;
+  @apply grid gap-4 px-5 py-4 md:grid-cols-[140px_1fr];
 }
 
 .transcript-meta {
-  @apply flex flex-col gap-2;
+  @apply flex flex-col gap-1.5;
 }
 
 .speaker-chip,
 .time-chip {
-  @apply inline-flex w-fit items-center rounded-full px-3 py-1 text-xs;
+  @apply inline-flex w-fit items-center rounded-md px-2 py-0.5 text-xs;
 }
 
 .speaker-chip {
@@ -657,12 +603,29 @@ function formatTime(seconds) {
   color: var(--muted);
 }
 
-.info-list {
-  @apply mt-1;
+.transcript-text {
+  @apply text-sm leading-7;
+  color: var(--text-strong);
 }
 
-.info-list-top {
-  @apply mt-0;
+.empty-section {
+  @apply p-5 text-sm;
+  color: var(--muted);
+}
+
+/* ── Side cards ── */
+.side-card {
+  @apply overflow-hidden;
+}
+
+.side-card-header {
+  @apply px-5 py-4;
+  border-bottom: 1px solid var(--line);
+}
+
+.side-card-title {
+  @apply text-sm font-semibold;
+  color: var(--text-strong);
 }
 
 .info-list > * + * {
@@ -670,36 +633,30 @@ function formatTime(seconds) {
 }
 
 .info-row {
-  @apply flex items-center justify-between gap-4 py-3 text-sm;
+  @apply flex items-center justify-between gap-4 px-5 py-3 text-sm;
 }
 
-.info-row span,
-.side-copy {
-  @apply text-[var(--muted)];
+.info-row span {
+  color: var(--muted);
 }
 
 .info-row strong {
-  @apply text-right text-[var(--text-strong)];
+  @apply text-right font-medium;
+  color: var(--text-strong);
 }
 
-.side-copy {
-  @apply px-5 md:px-6;
-}
-
-.side-action {
-  @apply mx-5 mb-5 mt-4 md:mx-6;
-}
-
+/* ── States ── */
 .state-shell {
   @apply flex min-h-[240px] flex-col items-center justify-center gap-3 text-center;
 }
 
 .state-title {
-  @apply text-lg font-medium text-[var(--text-strong)];
+  @apply text-lg font-medium;
+  color: var(--text-strong);
 }
 
 .loader {
-  @apply h-9 w-9 animate-spin rounded-full border-2 border-t-transparent;
+  @apply h-8 w-8 animate-spin rounded-full border-2 border-t-transparent;
   border-color: var(--accent);
   border-top-color: transparent;
 }
@@ -707,7 +664,7 @@ function formatTime(seconds) {
 @media (min-width: 1280px) {
   .side-column {
     position: sticky;
-    top: 1.75rem;
+    top: 4.5rem;
   }
 }
 </style>
